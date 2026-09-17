@@ -3,6 +3,7 @@ import '../theme/app_typography.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 
 /// 清單項目：未完成＝深灰框，完成＝橘色勾 + 淡化刪除線文字。
 class ChecklistTile extends StatelessWidget {
@@ -41,7 +42,7 @@ class ChecklistTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: dimmed ? AppColors.surfaceMuted : Colors.transparent,
+        color: dimmed ? context.palette.surfaceMuted : Colors.transparent,
         border: dimmed
             ? const Border(left: BorderSide(color: AppColors.primary, width: 3))
             : null,
@@ -67,7 +68,7 @@ class ChecklistTile extends StatelessWidget {
                   width: 36,
                   height: 40,
                 ),
-                icon: _circle(),
+                icon: _circle(context),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -93,7 +94,7 @@ class ChecklistTile extends StatelessWidget {
                       ),
                       style: t.bodyMedium?.copyWith(
                         color: checked || dimmed
-                            ? AppColors.textTertiary
+                            ? context.palette.textTertiary
                             : null,
                         decoration: checked ? TextDecoration.lineThrough : null,
                       ),
@@ -103,7 +104,7 @@ class ChecklistTile extends StatelessWidget {
                       Text(
                         '放在：$containerLabel',
                         style: t.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
+                          color: context.palette.textTertiary,
                         ),
                       ),
                     ],
@@ -142,14 +143,14 @@ class ChecklistTile extends StatelessWidget {
     );
   }
 
-  Widget _circle() {
+  Widget _circle(BuildContext context) {
     if (!checked) {
       return Container(
         width: 20,
         height: 20,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.border, width: 2),
+          border: Border.all(color: context.palette.border, width: 2),
         ),
       );
     }

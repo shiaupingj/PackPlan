@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_settings.dart';
 import '../services/formatters.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_palette.dart';
 import '../theme/app_typography.dart';
 
 class WeightText extends StatelessWidget {
@@ -32,7 +32,7 @@ class WeightText extends StatelessWidget {
       style: (baseStyle ?? const TextStyle()).copyWith(
         fontFamily: AppTypography.fontFamily,
         fontFamilyFallback: AppTypography.fontFamilyFallback,
-        color: color ?? baseStyle?.color ?? AppColors.textPrimary,
+        color: color ?? baseStyle?.color ?? context.palette.textPrimary,
         fontWeight: fontWeight ?? baseStyle?.fontWeight,
       ),
     );

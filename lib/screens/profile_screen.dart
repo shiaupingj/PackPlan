@@ -11,6 +11,7 @@ import '../services/backup_codec.dart';
 import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import 'create_pack_flow_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -89,6 +90,35 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       );
                     },
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Text('外觀', style: t.titleMedium),
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<ThemeMode>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text('淺色'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          label: Text('深色'),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          label: Text('跟隨系統'),
+                        ),
+                      ],
+                      selected: {settings.themeMode},
+                      onSelectionChanged: (selection) {
+                        repository.updateSettings(
+                          settings.copyWith(themeMode: selection.first),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -197,7 +227,7 @@ class ProfileScreen extends StatelessWidget {
         ListTile(
           leading: Icon(
             locked ? Icons.lock_outline : Icons.view_list_outlined,
-            color: locked ? AppColors.textTertiary : AppColors.primary,
+            color: locked ? context.palette.textTertiary : AppColors.primary,
           ),
           title: Text(template.name),
           subtitle: Text(locked ? 'Pro 範本，升級後可使用' : '免費範本，可建立清單'),

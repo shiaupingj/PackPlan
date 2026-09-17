@@ -5,6 +5,7 @@ import '../screens/profile_screen.dart';
 import '../screens/templates_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import 'app_scope.dart';
 
 class AppShell extends StatefulWidget {
@@ -42,7 +43,7 @@ class _AppShellState extends State<AppShell> {
               heroTag: 'home-help-button',
               tooltip: '操作說明',
               backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.surfaceElevated,
+              foregroundColor: AppColors.onPrimary,
               elevation: 2,
               onPressed: () => _showHomeHelp(context),
               child: const Icon(Icons.info_outline_rounded),
@@ -106,7 +107,7 @@ class _AppShellState extends State<AppShell> {
                     onPressed: () => Navigator.of(dialogContext).pop(),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.surfaceElevated,
+                      foregroundColor: AppColors.onPrimary,
                       padding: const EdgeInsets.symmetric(
                         vertical: AppSpacing.md,
                       ),
@@ -153,7 +154,7 @@ class _HelpAction extends StatelessWidget {
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.palette.textSecondary,
                 ),
               ),
             ],

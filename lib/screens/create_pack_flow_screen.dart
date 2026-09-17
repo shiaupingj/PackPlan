@@ -7,6 +7,7 @@ import '../models/pack_list.dart';
 import '../models/pack_template.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import 'pack_detail_screen.dart';
 
 class CreatePackFlowScreen extends StatefulWidget {
@@ -249,12 +250,12 @@ class _ItemSelectionStep extends StatelessWidget {
                             ),
                             color: selected
                                 ? AppColors.primary
-                                : AppColors.surface,
+                                : context.palette.surface,
                             shape: RoundedRectangleBorder(
                               side: BorderSide(
                                 color: selected
                                     ? AppColors.primary
-                                    : AppColors.border,
+                                    : context.palette.border,
                                 width: 0.8,
                               ),
                               borderRadius: BorderRadius.circular(12),
@@ -288,7 +289,7 @@ class _ItemSelectionStep extends StatelessWidget {
                                         style: TextStyle(
                                           color: selected
                                               ? AppColors.ink
-                                              : AppColors.textPrimary,
+                                              : context.palette.textPrimary,
                                         ),
                                       ),
                                     ),
@@ -335,14 +336,14 @@ class _TemplateStep extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: Card(
-              color: active ? AppColors.primary : AppColors.surface,
+              color: active ? AppColors.primary : context.palette.surface,
               child: ListTile(
                 enabled: !locked,
                 onTap: locked ? null : () => onSelected(template),
                 title: Text(
                   template.name,
                   style: t.titleMedium?.copyWith(
-                    color: active ? AppColors.ink : AppColors.textPrimary,
+                    color: active ? AppColors.ink : context.palette.textPrimary,
                   ),
                 ),
                 subtitle: Text(
@@ -352,7 +353,7 @@ class _TemplateStep extends StatelessWidget {
                   style: TextStyle(
                     color: active
                         ? AppColors.orange900
-                        : AppColors.textSecondary,
+                        : context.palette.textSecondary,
                   ),
                 ),
                 trailing: locked
@@ -444,13 +445,13 @@ class _TripSettingsStep extends StatelessWidget {
               showCheckmark: true,
               checkmarkColor: AppColors.ink,
               selectedColor: AppColors.primary,
-              backgroundColor: AppColors.surface,
+              backgroundColor: context.palette.surface,
               side: BorderSide(
-                color: selected ? AppColors.primary : AppColors.border,
+                color: selected ? AppColors.primary : context.palette.border,
                 width: 0.8,
               ),
               labelStyle: TextStyle(
-                color: selected ? AppColors.ink : AppColors.textPrimary,
+                color: selected ? AppColors.ink : context.palette.textPrimary,
               ),
               label: Text(_weatherLabel(value)),
               onSelected: (isSelected) {
@@ -560,9 +561,9 @@ class PrimaryActionRow extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onSecondary,
               style: OutlinedButton.styleFrom(
-                backgroundColor: AppColors.surface,
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border, width: 0.8),
+                backgroundColor: context.palette.surface,
+                foregroundColor: context.palette.textPrimary,
+                side: BorderSide(color: context.palette.border, width: 0.8),
               ),
               child: Text(secondaryLabel!),
             ),

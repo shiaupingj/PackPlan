@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart' show ThemeMode;
+
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
 import '../models/user_settings.dart';
@@ -42,6 +44,7 @@ class BackupCodec {
       'settings': {
         'weightUnit': settings.weightUnit.name,
         'defaultWeightLimitGram': settings.defaultWeightLimitGram,
+        'themeMode': settings.themeMode.name,
       },
       'lists': lists.map(_encodeList).toList(),
     };
@@ -79,6 +82,12 @@ class BackupCodec {
         settingsJson['defaultWeightLimitGram'],
         '預設重量上限',
       );
+      // 舊備份沒有 themeMode 欄位時，預設跟隨系統。
+      final themeName = settingsJson['themeMode'];
+      final themeMode = ThemeMode.values
+              .where((mode) => mode.name == themeName)
+              .firstOrNull ??
+          ThemeMode.system;
 
       final listJson = _list(root['lists'], '清單');
       final lists = listJson
@@ -94,6 +103,7 @@ class BackupCodec {
         settings: UserSettings(
           weightUnit: weightUnit,
           defaultWeightLimitGram: limit,
+          themeMode: themeMode,
         ),
         exportedAt: DateTime.parse(_string(root['exportedAt'], '匯出時間')),
       );

@@ -2,95 +2,112 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_dimens.dart';
+import 'app_palette.dart';
 import 'app_typography.dart';
 
-/// 組合 design tokens 成 Flutter ThemeData（黑底橘色版）。
+/// 組合 design tokens 成 Flutter ThemeData。
+///
+/// 中性色（背景/表面/文字/邊框…）由 [AppPalette] 依模式帶入，
+/// 品牌橘色與語意色（primary / tier / ink）維持固定。
 abstract final class AppTheme {
-  static ThemeData get light {
+  static ThemeData get dark => _build(AppPalette.dark);
+  static ThemeData get light => _build(AppPalette.light);
+
+  static ThemeData _build(AppPalette p) {
+    final scheme =
+        (p.brightness == Brightness.dark
+                ? const ColorScheme.dark()
+                : const ColorScheme.light())
+            .copyWith(
+              primary: AppColors.primary,
+              onPrimary: AppColors.onPrimary,
+              secondary: AppColors.primary,
+              surface: p.surface,
+              onSurface: p.textPrimary,
+              error: p.weightOver,
+            );
+
     final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: p.brightness,
       fontFamily: AppTypography.fontFamily,
       fontFamilyFallback: AppTypography.fontFamilyFallback,
-      scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
-        onPrimary: AppColors.onPrimary,
-        secondary: AppColors.primary,
-        surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
-        error: AppColors.weightOver,
-      ),
+      scaffoldBackgroundColor: p.background,
+      colorScheme: scheme,
+      extensions: [p],
     );
 
     return base.copyWith(
-      textTheme: AppTypography.textTheme,
-      dividerColor: AppColors.border,
-      cardTheme: const CardThemeData(
-        color: AppColors.surface,
+      textTheme: AppTypography.textTheme(
+        primary: p.textPrimary,
+        secondary: p.textSecondary,
+      ),
+      dividerColor: p.border,
+      cardTheme: CardThemeData(
+        color: p.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.border, width: 0.8),
-          borderRadius: BorderRadius.all(Radius.circular(AppRadius.lg)),
+          side: BorderSide(color: p.border, width: 0.8),
+          borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
         ),
         margin: EdgeInsets.zero,
       ),
-      dialogTheme: const DialogThemeData(
-        backgroundColor: AppColors.surface,
+      dialogTheme: DialogThemeData(
+        backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.border, width: 0.8),
-          borderRadius: BorderRadius.all(Radius.circular(AppRadius.lg)),
+          side: BorderSide(color: p.border, width: 0.8),
+          borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
         ),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textPrimary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: p.background,
+        foregroundColor: p.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: AppColors.primary),
+        iconTheme: const IconThemeData(color: AppColors.primary),
         titleTextStyle: TextStyle(
           fontFamily: AppTypography.fontFamily,
           fontFamilyFallback: AppTypography.fontFamilyFallback,
-          color: AppColors.textPrimary,
+          color: p.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w500,
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: AppColors.surfaceMuted,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: p.surfaceMuted,
         surfaceTintColor: Colors.transparent,
-        modalBackgroundColor: AppColors.surfaceMuted,
-        dragHandleColor: AppColors.textTertiary,
+        modalBackgroundColor: p.surfaceMuted,
+        dragHandleColor: p.textTertiary,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.border, width: 0.8),
-          borderRadius: BorderRadius.vertical(
+          side: BorderSide(color: p.border, width: 0.8),
+          borderRadius: const BorderRadius.vertical(
             top: Radius.circular(AppRadius.lg),
           ),
         ),
         clipBehavior: Clip.antiAlias,
       ),
-      listTileTheme: const ListTileThemeData(
+      listTileTheme: ListTileThemeData(
         iconColor: AppColors.primary,
-        textColor: AppColors.textPrimary,
-        subtitleTextStyle: TextStyle(color: AppColors.textSecondary),
+        textColor: p.textPrimary,
+        subtitleTextStyle: TextStyle(color: p.textSecondary),
       ),
-      expansionTileTheme: const ExpansionTileThemeData(
+      expansionTileTheme: ExpansionTileThemeData(
         iconColor: AppColors.primary,
-        collapsedIconColor: AppColors.textSecondary,
-        textColor: AppColors.textPrimary,
-        collapsedTextColor: AppColors.textPrimary,
+        collapsedIconColor: p.textSecondary,
+        textColor: p.textPrimary,
+        collapsedTextColor: p.textPrimary,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.background,
+        backgroundColor: p.background,
         elevation: 0,
-        indicatorColor: AppColors.surfaceElevated,
+        indicatorColor: p.surfaceElevated,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
                 ? AppColors.primary
-                : AppColors.textTertiary,
+                : p.textTertiary,
           ),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
@@ -99,27 +116,45 @@ abstract final class AppTheme {
             fontFamilyFallback: AppTypography.fontFamilyFallback,
             color: states.contains(WidgetState.selected)
                 ? AppColors.primary
-                : AppColors.textTertiary,
+                : p.textTertiary,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
       ),
-      snackBarTheme: const SnackBarThemeData(
-        backgroundColor: AppColors.surfaceElevated,
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: p.surfaceElevated,
         contentTextStyle: TextStyle(
           fontFamily: AppTypography.fontFamily,
           fontFamilyFallback: AppTypography.fontFamilyFallback,
-          color: AppColors.textPrimary,
+          color: p.textPrimary,
         ),
         behavior: SnackBarBehavior.floating,
       ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : Colors.transparent,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.onPrimary
+                : p.textPrimary,
+          ),
+          side: WidgetStatePropertyAll(BorderSide(color: p.border)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ),
       switchTheme: SwitchThemeData(
-        thumbColor: const WidgetStatePropertyAll(AppColors.textPrimary),
+        thumbColor: WidgetStatePropertyAll(p.textPrimary),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
               ? AppColors.primary
-              : AppColors.border,
+              : p.border,
         ),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
