@@ -393,14 +393,23 @@ class _ProUpgradeCard extends StatelessWidget {
                     border: Border.all(color: AppColors.textPrimary, width: 1),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                  child: Text('特別優惠', style: t.bodySmall),
+                  child: Text(
+                    '特別優惠',
+                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('升級至 Pro 版', style: t.headlineMedium),
+            Text(
+              '升級至 Pro 版',
+              style: t.headlineMedium?.copyWith(color: AppColors.textPrimary),
+            ),
             const SizedBox(height: AppSpacing.sm),
-            Text('解鎖 Pro 範本 + 更多智慧打包功能', style: t.bodyMedium),
+            Text(
+              '解鎖 Pro 範本 + 更多智慧打包功能',
+              style: t.bodyMedium?.copyWith(color: AppColors.textPrimary),
+            ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
               width: double.infinity,
