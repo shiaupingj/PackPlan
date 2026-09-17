@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
@@ -61,6 +62,35 @@ void main() {
           .weightClass,
       WeightClass.worn,
     );
+  });
+
+  test('backup round trip preserves themeMode', () {
+    final source = InMemoryPackListRepository();
+    source.updateSettings(
+      const UserSettings(themeMode: ThemeMode.light),
+    );
+
+    final backup = BackupCodec.decode(
+      BackupCodec.encode(lists: source.lists, settings: source.settings),
+    );
+
+    expect(backup.settings.themeMode, ThemeMode.light);
+  });
+
+  test('legacy backups without themeMode default to system', () {
+    final source = InMemoryPackListRepository();
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+    );
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+    (json['settings']! as Map<String, Object?>).remove('themeMode');
+
+    final backup = BackupCodec.decode(
+      Uint8List.fromList(utf8.encode(jsonEncode(json))),
+    );
+
+    expect(backup.settings.themeMode, ThemeMode.system);
   });
 
   test('legacy backups without showWeight default to visible', () {

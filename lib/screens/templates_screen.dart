@@ -4,6 +4,7 @@ import '../app/app_scope.dart';
 import '../models/pack_template.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import 'create_pack_flow_screen.dart';
 
 class TemplatesScreen extends StatelessWidget {
@@ -63,7 +64,7 @@ class _TemplateCard extends StatelessWidget {
     final active = !template.proOnly;
 
     return Card(
-      color: active ? AppColors.primary : AppColors.surface,
+      color: active ? AppColors.primary : context.palette.surface,
       child: ListTile(
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
@@ -73,17 +74,17 @@ class _TemplateCard extends StatelessWidget {
         title: Text(
           template.name,
           style: t.titleMedium?.copyWith(
-            color: active ? AppColors.ink : AppColors.textPrimary,
+            color: active ? AppColors.ink : context.palette.textPrimary,
           ),
         ),
         subtitle: Text(
           template.description,
           style: TextStyle(
-            color: active ? AppColors.orange900 : AppColors.textSecondary,
+            color: active ? AppColors.orange900 : context.palette.textSecondary,
           ),
         ),
         trailing: template.proOnly
-            ? const Icon(Icons.lock_outline, color: AppColors.textSecondary)
+            ? Icon(Icons.lock_outline, color: context.palette.textSecondary)
             : const Icon(Icons.chevron_right, color: AppColors.ink),
       ),
     );

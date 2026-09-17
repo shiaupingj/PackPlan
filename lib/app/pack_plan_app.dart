@@ -22,11 +22,19 @@ class _PackPlanAppState extends State<PackPlanApp> {
   Widget build(BuildContext context) {
     return AppScope(
       repository: _repository,
-      child: MaterialApp(
-        title: 'PackPlan',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: const AppShell(),
+      // settings.themeMode 變動時（例如在設定頁切換外觀）重建 MaterialApp。
+      child: ListenableBuilder(
+        listenable: _repository,
+        builder: (context, _) {
+          return MaterialApp(
+            title: 'PackPlan',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: _repository.settings.themeMode,
+            home: const AppShell(),
+          );
+        },
       ),
     );
   }

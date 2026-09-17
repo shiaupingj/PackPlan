@@ -12,6 +12,7 @@ import '../services/trip_formatters.dart';
 import '../services/weight_calculator.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import '../widgets/app_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/weight_bar.dart';
@@ -878,7 +879,7 @@ class _ContainerSummaryRow extends StatelessWidget {
                                 Text(
                                   item.categoryName,
                                   style: t.bodySmall?.copyWith(
-                                    color: AppColors.textTertiary,
+                                    color: context.palette.textTertiary,
                                   ),
                                 ),
                               ],
@@ -967,9 +968,9 @@ class _CategorySection extends StatelessWidget {
                 children: [
                   IconButton(
                     tooltip: '重新命名$name分類',
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.edit_outlined,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                     onPressed: onRename,
                   ),
@@ -1208,13 +1209,13 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
                 showCheckmark: true,
                 checkmarkColor: AppColors.ink,
                 selectedColor: AppColors.primary,
-                backgroundColor: AppColors.surface,
+                backgroundColor: context.palette.surface,
                 side: BorderSide(
-                  color: selected ? AppColors.primary : AppColors.border,
+                  color: selected ? AppColors.primary : context.palette.border,
                   width: 0.8,
                 ),
                 labelStyle: TextStyle(
-                  color: selected ? AppColors.ink : AppColors.textPrimary,
+                  color: selected ? AppColors.ink : context.palette.textPrimary,
                 ),
                 label: Text(_weatherLabel(weather)),
                 onSelected: (value) {
@@ -1662,8 +1663,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           style: TextButton.styleFrom(
-            backgroundColor: AppColors.surfaceElevated,
-            foregroundColor: AppColors.textPrimary,
+            backgroundColor: context.palette.surfaceElevated,
+            foregroundColor: context.palette.textPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1752,7 +1753,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   TextStyle? _editorFieldLabelStyle(BuildContext context) {
     return Theme.of(
       context,
-    ).textTheme.bodySmall?.copyWith(color: AppColors.textTertiary);
+    ).textTheme.bodySmall?.copyWith(color: context.palette.textTertiary);
   }
 
   void _chooseCategory(String category) {

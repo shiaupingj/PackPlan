@@ -4,6 +4,7 @@ import '../models/user_settings.dart';
 import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 
 enum WeightStatus { ok, near, over }
 
@@ -31,10 +32,10 @@ class WeightBar extends StatelessWidget {
     return WeightStatus.ok;
   }
 
-  Color get _color => switch (status) {
+  Color _color(BuildContext context) => switch (status) {
     WeightStatus.ok => AppColors.weightOk,
-    WeightStatus.near => AppColors.weightNear,
-    WeightStatus.over => AppColors.weightOver,
+    WeightStatus.near => context.palette.weightNear,
+    WeightStatus.over => context.palette.weightOver,
   };
 
   @override
@@ -56,7 +57,7 @@ class WeightBar extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   height: height,
-                  color: _color,
+                  color: _color(context),
                 ),
               ),
             ],
@@ -69,7 +70,7 @@ class WeightBar extends StatelessWidget {
             '${WeightFormatters.gram(limitGram - currentGram, unit: unit)}',
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.weightNear),
+            ).textTheme.bodySmall?.copyWith(color: context.palette.weightNear),
           ),
         ] else if (status == WeightStatus.over) ...[
           const SizedBox(height: AppSpacing.xs),
@@ -77,7 +78,7 @@ class WeightBar extends StatelessWidget {
             '⚠️ 已超重 ${WeightFormatters.gram(currentGram - limitGram, unit: unit)}',
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.weightOver),
+            ).textTheme.bodySmall?.copyWith(color: context.palette.weightOver),
           ),
         ],
       ],

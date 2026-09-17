@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 
 /// 主要 CTA：白底黑字，橘色 icon 呼應 action。
 class PrimaryButton extends StatelessWidget {
@@ -23,10 +24,10 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.textPrimary,
-          foregroundColor: AppColors.ink,
-          disabledBackgroundColor: AppColors.surfaceElevated,
-          disabledForegroundColor: AppColors.textTertiary,
+          backgroundColor: context.palette.textPrimary,
+          foregroundColor: context.palette.onTextPrimary,
+          disabledBackgroundColor: context.palette.surfaceElevated,
+          disabledForegroundColor: context.palette.textTertiary,
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -65,9 +66,9 @@ class SecondaryButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppColors.surfaceElevated,
-          foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.border, width: 0.5),
+          backgroundColor: context.palette.surfaceElevated,
+          foregroundColor: context.palette.textPrimary,
+          side: BorderSide(color: context.palette.border, width: 0.5),
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.pill),

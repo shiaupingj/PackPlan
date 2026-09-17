@@ -28,6 +28,19 @@ abstract final class AppColors {
   static const Color border = Color(0xFF3A3A3A);
   static const Color trackMuted = Color(0xFF5B5F60);
 
+  // ── 淺色模式中性色（Figma「PackPlan Color」Light mode）─────────
+  static const Color lightBackground = Color(0xFFF5F5F5);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightSurfaceElevated = Color(0xFFFFFFFF);
+  static const Color lightSurfaceMuted = Color(0xFFECECEC);
+  static const Color lightTextPrimary = Color(0xFF1A1A1A);
+  static const Color lightTextSecondary = Color(0xFF5C5C5C);
+  static const Color lightTextTertiary = Color(0xFF8A8A8A);
+  static const Color lightBorder = Color(0xFFE2E2E2);
+  static const Color lightTrackMuted = Color(0xFFE6E6E6);
+  static const Color lightWeightNear = Color(0xFFE68A00);
+  static const Color lightWeightOver = Color(0xFFD3383D);
+
   // ── 重量狀態（語意色）────────────────────────────────────
   static const Color weightOk = orange500;
   static const Color weightNear = Color(0xFFFFA629); // 接近上限

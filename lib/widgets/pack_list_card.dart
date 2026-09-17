@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_settings.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
+import '../theme/app_palette.dart';
 import 'weight_text.dart';
 
 /// 首頁清單卡：標題 + 基重 + 進度條。
@@ -62,7 +63,7 @@ class PackListCard extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: progress.clamp(0.0, 1.0),
                   minHeight: 12,
-                  backgroundColor: AppColors.trackMuted,
+                  backgroundColor: context.palette.trackMuted,
                   valueColor: const AlwaysStoppedAnimation(AppColors.primary),
                 ),
               ),

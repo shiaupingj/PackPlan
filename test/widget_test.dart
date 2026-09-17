@@ -207,6 +207,31 @@ void main() {
     expect(find.text('基重 4120${nbsp}g'), findsOneWidget);
   });
 
+  testWidgets('Appearance control switches theme mode to light', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const PackPlanApp());
+
+    // 預設跟隨系統。
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.system,
+    );
+
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('淺色'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('淺色'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
+  });
+
   testWidgets('Profile shows privacy policy and terms entries', (tester) async {
     await tester.pumpWidget(const PackPlanApp());
 
