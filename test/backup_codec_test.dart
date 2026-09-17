@@ -1,0 +1,148 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:packplan/data/pack_list_repository.dart';
+import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/models/user_settings.dart';
+import 'package:packplan/services/backup_codec.dart';
+
+void main() {
+  test('backup round trip preserves lists, items, and settings', () {
+    final source = InMemoryPackListRepository();
+    final firstList = source.lists.first;
+    final shirt = source
+        .findById(firstList.id)!
+        .items
+        .singleWhere((item) => item.id == 'shirt');
+    source.upsertItem(
+      firstList.id,
+      shirt.copyWith(weightClass: WeightClass.worn),
+    );
+    source.updateTripSettings(
+      firstList.id,
+      days: firstList.days,
+      weatherConditions: firstList.weatherConditions,
+      showWeight: false,
+    );
+    source.updateSettings(
+      const UserSettings(
+        weightUnit: WeightUnit.gram,
+        defaultWeightLimitGram: 8500,
+      ),
+    );
+
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+      exportedAt: DateTime.utc(2026, 6, 30),
+    );
+    final backup = BackupCodec.decode(bytes);
+
+    expect(backup.lists.length, source.lists.length);
+    expect(backup.lists.first.title, source.lists.first.title);
+    expect(backup.lists.first.items.length, source.lists.first.items.length);
+    expect(
+      backup.lists.first.items.first.containerItemId,
+      source.lists.first.items.first.containerItemId,
+    );
+    expect(backup.settings.weightUnit, WeightUnit.gram);
+    expect(backup.settings.defaultWeightLimitGram, 8500);
+    expect(backup.exportedAt, DateTime.utc(2026, 6, 30));
+    expect(
+      backup.lists.singleWhere((list) => list.id == firstList.id).showWeight,
+      isFalse,
+    );
+    expect(
+      backup.lists
+          .singleWhere((list) => list.id == firstList.id)
+          .items
+          .singleWhere((item) => item.id == 'shirt')
+          .weightClass,
+      WeightClass.worn,
+    );
+  });
+
+  test('legacy backups without showWeight default to visible', () {
+    final source = InMemoryPackListRepository();
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+    );
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+    final lists = json['lists']! as List<Object?>;
+    for (final list in lists.cast<Map<String, Object?>>()) {
+      list.remove('showWeight');
+      final items = list['items']! as List<Object?>;
+      for (final item in items.cast<Map<String, Object?>>()) {
+        item.remove('weightClass');
+      }
+    }
+
+    final backup = BackupCodec.decode(
+      Uint8List.fromList(utf8.encode(jsonEncode(json))),
+    );
+
+    expect(backup.lists.every((list) => list.showWeight), isTrue);
+    expect(
+      backup.lists
+          .expand((list) => list.items)
+          .every((item) => item.weightClass == WeightClass.packed),
+      isTrue,
+    );
+  });
+
+  test('legacy consumable weight class migrates to packed', () {
+    final source = InMemoryPackListRepository();
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+    );
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+    final lists = json['lists']! as List<Object?>;
+    final firstList = lists.first as Map<String, Object?>;
+    final items = firstList['items']! as List<Object?>;
+    final firstItem = items.first as Map<String, Object?>;
+    firstItem['weightClass'] = 'consumable';
+
+    final backup = BackupCodec.decode(
+      Uint8List.fromList(utf8.encode(jsonEncode(json))),
+    );
+
+    expect(backup.lists.first.items.first.weightClass, WeightClass.packed);
+  });
+
+  test('repository can replace all data with decoded backup', () {
+    final source = InMemoryPackListRepository();
+    final target = InMemoryPackListRepository();
+    final backup = BackupCodec.decode(
+      BackupCodec.encode(
+        lists: [source.lists.first],
+        settings: const UserSettings(defaultWeightLimitGram: 9500),
+      ),
+    );
+
+    target.replaceAllData(lists: backup.lists, settings: backup.settings);
+
+    expect(target.lists, hasLength(1));
+    expect(target.lists.single.id, source.lists.first.id);
+    expect(target.settings.defaultWeightLimitGram, 9500);
+  });
+
+  test('decode rejects files that are not PackPlan backups', () {
+    final bytes = Uint8List.fromList(
+      utf8.encode(jsonEncode({'format': 'other', 'version': 1})),
+    );
+
+    expect(
+      () => BackupCodec.decode(bytes),
+      throwsA(
+        isA<BackupFormatException>().having(
+          (error) => error.message,
+          'message',
+          '這不是 PackPlan 備份檔',
+        ),
+      ),
+    );
+  });
+}
