@@ -23,7 +23,7 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
   static const _basicHikeDefaultUnselectedNames = {
     '背包套',
     '小背包',
-    '分裝防水袋',
+    '防水袋',
     '睡墊',
     '中層背心',
     '拖鞋',

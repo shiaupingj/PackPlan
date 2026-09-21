@@ -278,7 +278,7 @@ abstract final class SeedData {
           isContainer: true,
         ),
         _TemplateItemSpec(id: 'small-backpack', name: '小背包', isContainer: true),
-        _TemplateItemSpec(id: 'dry-bag', name: '分裝防水袋', isContainer: true),
+        _TemplateItemSpec(id: 'dry-bag', name: '防水袋', isContainer: true),
       ],
     ),
     _TemplateItemGroup(
