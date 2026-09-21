@@ -29,7 +29,7 @@ abstract final class SeedData {
       id: 'advanced-hike',
       name: '進階登山',
       tripType: TripType.hiking,
-      proOnly: true,
+      proOnly: false, // 暫時解鎖以便測試進階登山候選清單
       description: '高海拔、長距離與進階裝備配置。',
     ),
     PackTemplate(
@@ -296,7 +296,7 @@ abstract final class SeedData {
         _TemplateItemSpec(id: 'raincoat', name: '雨衣'),
         _TemplateItemSpec(id: 'rain-pants', name: '雨褲'),
         _TemplateItemSpec(id: 'base-layer', name: '排汗底層衣'),
-        _TemplateItemSpec(id: 'warm-jacket', name: '保暖外套'),
+        _TemplateItemSpec(id: 'warm-jacket', name: '外套'),
         _TemplateItemSpec(id: 'windbreaker', name: '防風外套'),
         _TemplateItemSpec(id: 'midlayer-vest', name: '中層背心'),
         _TemplateItemSpec(id: 'spare-clothes', name: '備用衣物'),
@@ -450,7 +450,6 @@ abstract final class SeedData {
       _TemplateItemSpec(id: 'harness', name: '吊帶'),
       _TemplateItemSpec(id: 'belay-device', name: '確保/下降器'),
       _TemplateItemSpec(id: 'gps-communicator', name: '衛星通訊器'),
-      _TemplateItemSpec(id: 'down-jacket', name: '羽絨外套'),
       _TemplateItemSpec(id: 'alpine-gloves', name: '高地手套'),
       _TemplateItemSpec(id: 'snow-gaiters', name: '雪地綁腿'),
       _TemplateItemSpec(id: 'balaclava', name: '面罩頭巾'),
