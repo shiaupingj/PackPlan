@@ -87,28 +87,6 @@ void main() {
 
     expect(find.text('匯出備份'), findsOneWidget);
     expect(find.text('匯入備份'), findsOneWidget);
-
-    await tester.scrollUntilVisible(
-      find.text('5 個範本'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('5 個範本'), findsOneWidget);
-    expect(find.text('基礎登山'), findsWidgets);
-    expect(find.text('城市旅遊'), findsWidgets);
-
-    await tester.scrollUntilVisible(
-      find.text('長天數旅行'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('極簡露營'), findsWidgets);
-    expect(find.text('進階登山'), findsWidgets);
-    expect(find.text('長天數旅行'), findsWidgets);
   });
 
   testWidgets('Create flow selects items and generates a list in four steps', (

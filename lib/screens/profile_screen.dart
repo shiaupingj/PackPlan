@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app_scope.dart';
-import '../models/pack_template.dart';
 import '../models/user_settings.dart';
 import '../services/backup_codec.dart';
 import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
-import 'create_pack_flow_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -149,16 +147,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          Text('我的範本', style: t.titleLarge),
-          const SizedBox(height: AppSpacing.xs),
-          Text('${repository.templates.length} 個範本', style: t.bodySmall),
-          const SizedBox(height: AppSpacing.md),
-          Card(
-            child: Column(
-              children: _templateTiles(context, repository.templates),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           Text('聯繫', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
           Card(
@@ -210,41 +198,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  List<Widget> _templateTiles(
-    BuildContext context,
-    List<PackTemplate> templates,
-  ) {
-    final tiles = <Widget>[];
-    for (var index = 0; index < templates.length; index += 1) {
-      final template = templates[index];
-      final locked = template.proOnly;
-      if (index > 0) tiles.add(const Divider(height: 1));
-      tiles.add(
-        ListTile(
-          leading: Icon(
-            locked ? Icons.lock_outline : Icons.view_list_outlined,
-            color: locked ? context.palette.textTertiary : AppColors.primary,
-          ),
-          title: Text(template.name),
-          subtitle: Text(locked ? 'Pro 範本，升級後可使用' : '免費範本，可建立清單'),
-          trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
-          onTap: () => locked
-              ? _showSnack(context, '${template.name} 是 Pro 範本，會在 1.1 版本開放')
-              : _openTemplate(context, template),
-        ),
-      );
-    }
-    return tiles;
-  }
-
-  static void _openTemplate(BuildContext context, PackTemplate template) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CreatePackFlowScreen(initialTemplate: template),
       ),
     );
   }
