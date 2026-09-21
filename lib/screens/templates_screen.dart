@@ -18,7 +18,12 @@ class TemplatesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('範本')),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.navBarClearance,
+        ),
         children: [
           Text('選一種旅程，先產生可調整的清單。', style: t.bodySmall),
           const SizedBox(height: AppSpacing.lg),

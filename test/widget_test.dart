@@ -24,7 +24,7 @@ void main() {
     expect(find.text('登山計劃'), findsOneWidget);
     expect(find.text('城市旅遊'), findsOneWidget);
     expect(find.text('建立新清單'), findsOneWidget);
-    expect(find.text('清單'), findsOneWidget);
+    expect(find.text('主頁'), findsOneWidget);
     expect(find.text('範本'), findsOneWidget);
     expect(find.text('設定'), findsOneWidget);
   });
@@ -137,7 +137,7 @@ void main() {
     expect(find.text('選擇項目'), findsOneWidget);
     expect(find.text('背包系統'), findsOneWidget);
     expect(find.text('衣物用品'), findsOneWidget);
-    expect(find.text('登山用具'), findsOneWidget);
+    expect(find.text('用具'), findsOneWidget);
     expect(find.text('大背包'), findsOneWidget);
     expect(find.text('身上穿戴'), findsNothing);
     expect(find.text('身上一套'), findsNothing);
@@ -147,7 +147,7 @@ void main() {
       find.byKey(const ValueKey('draft-item-backpack:大背包')),
     );
     final unselectedTileSize = tester.getSize(
-      find.byKey(const ValueKey('draft-item-backpack:背包套')),
+      find.byKey(const ValueKey('draft-item-backpack:小背包')),
     );
     expect(selectedTileSize, unselectedTileSize);
 
@@ -155,7 +155,7 @@ void main() {
     await tapVisible(tester, find.text('下一步'));
 
     expect(find.text('Step 4 / 4'), findsOneWidget);
-    expect(find.text('已選 27 個項目'), findsOneWidget);
+    expect(find.text('已選 42 個項目'), findsOneWidget);
 
     await tapVisible(tester, find.text('生成清單'));
 
@@ -163,11 +163,11 @@ void main() {
     expect(find.text('超輕量化打包'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('防雨衣物 0${nbsp}g'),
+      find.text('雨衣 0${nbsp}g'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('防雨衣物 0${nbsp}g'), findsOneWidget);
+    expect(find.text('雨衣 0${nbsp}g'), findsOneWidget);
     expect(find.textContaining('證件'), findsNothing);
   });
 
@@ -201,7 +201,7 @@ void main() {
     await tester.tap(find.text('g'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('清單'));
+    await tester.tap(find.text('主頁'));
     await tester.pumpAndSettle();
 
     expect(find.text('基重 4120${nbsp}g'), findsOneWidget);

@@ -32,7 +32,12 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.navBarClearance,
+        ),
         children: [
           const _ProUpgradeCard(),
           const SizedBox(height: AppSpacing.lg),
@@ -46,25 +51,20 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Text('單位設定', style: t.titleMedium),
                   const SizedBox(height: AppSpacing.md),
-                  SegmentedButton<WeightUnit>(
-                    segments: const [
-                      ButtonSegment(
-                        value: WeightUnit.kg,
-                        label: Text('kg'),
-                        icon: Icon(Icons.monitor_weight_outlined),
-                      ),
-                      ButtonSegment(
-                        value: WeightUnit.gram,
-                        label: Text('g'),
-                        icon: Icon(Icons.scale_outlined),
-                      ),
-                    ],
-                    selected: {settings.weightUnit},
-                    onSelectionChanged: (selection) {
-                      repository.updateSettings(
-                        settings.copyWith(weightUnit: selection.first),
-                      );
-                    },
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<WeightUnit>(
+                      segments: const [
+                        ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
+                        ButtonSegment(value: WeightUnit.gram, label: Text('g')),
+                      ],
+                      selected: {settings.weightUnit},
+                      onSelectionChanged: (selection) {
+                        repository.updateSettings(
+                          settings.copyWith(weightUnit: selection.first),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Text('預設重量上限', style: t.titleMedium),
@@ -364,14 +364,13 @@ class _ProUpgradeCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     return Container(
       decoration: BoxDecoration(
+        // 對照 Figma 特別優惠卡（node 45:189）：
+        // linear-gradient(148°, #838383 14%, #D65300 85%)。
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.surfaceElevated,
-            Color(0xFF263313),
-            AppColors.orange700,
-          ],
+          colors: [Color(0xFF838383), AppColors.orange700],
+          stops: [0.14, 0.85],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border, width: 0.8),
