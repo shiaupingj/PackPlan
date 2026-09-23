@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/pack_list_repository.dart';
+import '../services/cloud_backup_factory.dart';
 import '../services/cloud_backup_service.dart';
 import '../theme/app_theme.dart';
 import 'app_shell.dart';
@@ -11,6 +12,9 @@ class PackPlanApp extends StatefulWidget {
   const PackPlanApp({super.key, this.repository, this.cloudBackupService});
 
   final PackListRepository? repository;
+
+  /// 雲端備份服務；省略時依平台自動建立（iOS=iCloud、Android=Drive）。
+  /// 測試可注入 fake。
   final CloudBackupService? cloudBackupService;
 
   @override
@@ -20,7 +24,7 @@ class PackPlanApp extends StatefulWidget {
 class _PackPlanAppState extends State<PackPlanApp> {
   late final PackListRepository _repository =
       widget.repository ?? InMemoryPackListRepository();
-  late final CloudBackupService _cloudBackup =
+  late final CloudBackupService _cloudBackupService =
       widget.cloudBackupService ?? createCloudBackupService();
 
   @override
@@ -28,7 +32,7 @@ class _PackPlanAppState extends State<PackPlanApp> {
     return AppScope(
       repository: _repository,
       child: CloudBackupScope(
-        service: _cloudBackup,
+        service: _cloudBackupService,
         // settings.themeMode 變動時（例如在設定頁切換外觀）重建 MaterialApp。
         child: ListenableBuilder(
           listenable: _repository,

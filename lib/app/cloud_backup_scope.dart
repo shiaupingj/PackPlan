@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../services/cloud_backup_service.dart';
 
-/// 讓畫面（設定頁）取用 [CloudBackupService];測試可注入 fake。
+/// 讓畫面（設定頁）取用 [CloudBackupService]；測試可注入 fake。
 class CloudBackupScope extends InheritedWidget {
   const CloudBackupScope({
     super.key,
