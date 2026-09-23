@@ -21,7 +21,13 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('打包清單')),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        // 底部多留白，讓最後一張卡片不被浮動導覽膠囊擋住。
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.navBarClearance,
+        ),
         children: [
           Text(
             '聰明打包，輕鬆出遊~',

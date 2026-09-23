@@ -6,6 +6,9 @@ abstract final class AppSpacing {
   static const double lg = 16;
   static const double xl = 24;
   static const double xxl = 32;
+
+  /// 浮動導覽膠囊的高度含底部留白，捲動內容底部保留此空間以免被擋住。
+  static const double navBarClearance = 100;
 }
 
 abstract final class AppRadius {

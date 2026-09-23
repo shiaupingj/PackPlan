@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app_scope.dart';
-import '../models/pack_template.dart';
+import '../app/cloud_backup_scope.dart';
 import '../models/user_settings.dart';
 import '../services/backup_codec.dart';
+import '../services/cloud_backup_service.dart';
 import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
-import 'create_pack_flow_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -32,7 +32,12 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.navBarClearance,
+        ),
         children: [
           const _ProUpgradeCard(),
           const SizedBox(height: AppSpacing.lg),
@@ -46,25 +51,20 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Text('單位設定', style: t.titleMedium),
                   const SizedBox(height: AppSpacing.md),
-                  SegmentedButton<WeightUnit>(
-                    segments: const [
-                      ButtonSegment(
-                        value: WeightUnit.kg,
-                        label: Text('kg'),
-                        icon: Icon(Icons.monitor_weight_outlined),
-                      ),
-                      ButtonSegment(
-                        value: WeightUnit.gram,
-                        label: Text('g'),
-                        icon: Icon(Icons.scale_outlined),
-                      ),
-                    ],
-                    selected: {settings.weightUnit},
-                    onSelectionChanged: (selection) {
-                      repository.updateSettings(
-                        settings.copyWith(weightUnit: selection.first),
-                      );
-                    },
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<WeightUnit>(
+                      segments: const [
+                        ButtonSegment(value: WeightUnit.kg, label: Text('kg')),
+                        ButtonSegment(value: WeightUnit.gram, label: Text('g')),
+                      ],
+                      selected: {settings.weightUnit},
+                      onSelectionChanged: (selection) {
+                        repository.updateSettings(
+                          settings.copyWith(weightUnit: selection.first),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Text('預設重量上限', style: t.titleMedium),
@@ -148,16 +148,8 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text('我的範本', style: t.titleLarge),
-          const SizedBox(height: AppSpacing.xs),
-          Text('${repository.templates.length} 個範本', style: t.bodySmall),
           const SizedBox(height: AppSpacing.md),
-          Card(
-            child: Column(
-              children: _templateTiles(context, repository.templates),
-            ),
-          ),
+          const _CloudBackupCard(),
           const SizedBox(height: AppSpacing.lg),
           Text('聯繫', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
@@ -210,41 +202,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  List<Widget> _templateTiles(
-    BuildContext context,
-    List<PackTemplate> templates,
-  ) {
-    final tiles = <Widget>[];
-    for (var index = 0; index < templates.length; index += 1) {
-      final template = templates[index];
-      final locked = template.proOnly;
-      if (index > 0) tiles.add(const Divider(height: 1));
-      tiles.add(
-        ListTile(
-          leading: Icon(
-            locked ? Icons.lock_outline : Icons.view_list_outlined,
-            color: locked ? context.palette.textTertiary : AppColors.primary,
-          ),
-          title: Text(template.name),
-          subtitle: Text(locked ? 'Pro 範本，升級後可使用' : '免費範本，可建立清單'),
-          trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
-          onTap: () => locked
-              ? _showSnack(context, '${template.name} 是 Pro 範本，會在 1.1 版本開放')
-              : _openTemplate(context, template),
-        ),
-      );
-    }
-    return tiles;
-  }
-
-  static void _openTemplate(BuildContext context, PackTemplate template) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CreatePackFlowScreen(initialTemplate: template),
       ),
     );
   }
@@ -364,14 +321,13 @@ class _ProUpgradeCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     return Container(
       decoration: BoxDecoration(
+        // 對照 Figma 特別優惠卡（node 45:189）：
+        // linear-gradient(148°, #838383 14%, #D65300 85%)。
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.surfaceElevated,
-            Color(0xFF263313),
-            AppColors.orange700,
-          ],
+          colors: [Color(0xFF838383), AppColors.orange700],
+          stops: [0.14, 0.85],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border, width: 0.8),
@@ -430,6 +386,226 @@ class _ProUpgradeCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 設定頁「資料管理」的雲端備份卡片(v1:手動備份 / 還原)。
+///
+/// Android 用 Google Drive、iOS 待接 iCloud;依 [CloudBackupService] 狀態
+/// 顯示「連結帳號 / 備份 / 還原」。還原沿用「取代目前資料」確認框。
+class _CloudBackupCard extends StatefulWidget {
+  const _CloudBackupCard();
+
+  @override
+  State<_CloudBackupCard> createState() => _CloudBackupCardState();
+}
+
+class _CloudBackupCardState extends State<_CloudBackupCard> {
+  bool _loading = true;
+  bool _busy = false;
+  bool _supported = false;
+  bool _signedIn = false;
+  DateTime? _lastBackup;
+
+  CloudBackupService get _service => CloudBackupScope.of(context);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loading) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final service = _service;
+    var signedIn = false;
+    DateTime? last;
+    final supported = service.isSupported;
+    if (supported) {
+      signedIn = await service.isSignedIn();
+      if (signedIn) last = await service.lastBackupTime();
+    }
+    if (!mounted) return;
+    setState(() {
+      _supported = supported;
+      _signedIn = signedIn;
+      _lastBackup = last;
+      _loading = false;
+    });
+  }
+
+  Future<void> _connect() async {
+    setState(() => _busy = true);
+    try {
+      final ok = await _service.signIn();
+      if (!mounted) return;
+      if (ok) {
+        await _refresh();
+      } else {
+        ProfileScreen._showSnack(context, '未完成登入');
+      }
+    } on Object {
+      if (mounted) ProfileScreen._showSnack(context, '登入失敗,請稍後再試');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _backup() async {
+    final repository = AppScope.of(context);
+    setState(() => _busy = true);
+    try {
+      final bytes = BackupCodec.encode(
+        lists: repository.lists,
+        settings: repository.settings,
+      );
+      await _service.uploadBackup(bytes);
+      final last = await _service.lastBackupTime();
+      if (!mounted) return;
+      setState(() => _lastBackup = last ?? DateTime.now());
+      ProfileScreen._showSnack(context, '已備份到雲端');
+    } on Object {
+      if (mounted) ProfileScreen._showSnack(context, '雲端備份失敗,請稍後再試');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    setState(() => _busy = true);
+    try {
+      final backup = await _service.downloadBackup();
+      if (!mounted) return;
+      if (backup == null) {
+        ProfileScreen._showSnack(context, '雲端沒有備份');
+        return;
+      }
+      final decoded = BackupCodec.decode(backup.bytes);
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('從雲端還原並取代目前資料？'),
+          content: Text(
+            '將以雲端備份的 ${decoded.lists.length} 份清單取代目前所有清單與偏好設定。'
+            '此動作無法復原,建議先匯出目前資料。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('還原'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      AppScope.of(
+        context,
+      ).replaceAllData(lists: decoded.lists, settings: decoded.settings);
+      ProfileScreen._showSnack(context, '已從雲端還原 ${decoded.lists.length} 份清單');
+    } on BackupFormatException catch (error) {
+      if (mounted) ProfileScreen._showSnack(context, error.message);
+    } on Object {
+      if (mounted) ProfileScreen._showSnack(context, '雲端還原失敗,請稍後再試');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _formatTime(DateTime time) {
+    final local = time.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Column(children: _buildRows(t)),
+      ),
+    );
+  }
+
+  List<Widget> _buildRows(TextTheme t) {
+    if (_loading) {
+      return const [
+        ListTile(
+          leading: Icon(Icons.cloud_outlined, color: AppColors.primary),
+          title: Text('雲端備份'),
+          subtitle: Text('載入中…'),
+        ),
+      ];
+    }
+    if (!_supported) {
+      return [
+        ListTile(
+          leading: Icon(
+            Icons.cloud_off_outlined,
+            color: context.palette.textTertiary,
+          ),
+          title: const Text('雲端備份'),
+          subtitle: const Text('此平台即將支援(iCloud 規劃中)'),
+          enabled: false,
+        ),
+      ];
+    }
+    if (!_signedIn) {
+      return [
+        ListTile(
+          leading: const Icon(Icons.cloud_outlined, color: AppColors.primary),
+          title: const Text('連結雲端帳號'),
+          subtitle: const Text('登入後即可備份與還原'),
+          trailing: _busy
+              ? const _MiniSpinner()
+              : const Icon(Icons.chevron_right),
+          onTap: _busy ? null : _connect,
+        ),
+      ];
+    }
+    return [
+      ListTile(
+        leading: const Icon(Icons.backup_outlined, color: AppColors.primary),
+        title: const Text('備份到雲端'),
+        subtitle: Text(
+          _lastBackup == null ? '尚未備份' : '最後備份 ${_formatTime(_lastBackup!)}',
+        ),
+        trailing: _busy
+            ? const _MiniSpinner()
+            : const Icon(Icons.chevron_right),
+        onTap: _busy ? null : _backup,
+      ),
+      const Divider(height: 1),
+      ListTile(
+        leading: const Icon(
+          Icons.cloud_download_outlined,
+          color: AppColors.primary,
+        ),
+        title: const Text('從雲端還原'),
+        subtitle: const Text('以雲端備份取代目前資料'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _busy ? null : _restore,
+      ),
+    ];
+  }
+}
+
+class _MiniSpinner extends StatelessWidget {
+  const _MiniSpinner();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
 }

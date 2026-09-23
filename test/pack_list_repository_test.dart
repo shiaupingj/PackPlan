@@ -2,13 +2,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
 import 'package:packplan/models/pack_list.dart';
+import 'package:packplan/models/pack_template.dart';
 import 'package:packplan/models/user_settings.dart';
 
 void main() {
   test('createFromDraft adjusts quantities by days and weather', () {
     final repository = InMemoryPackListRepository();
-    final template = repository.templates.singleWhere(
-      (template) => template.id == 'advanced-hike',
+    // 用一個會落到內建登山樣板資料的 hiking 範本，
+    // 專測「天數 / 天氣調整數量」引擎，與各範本自訂候選清單解耦。
+    const template = PackTemplate(
+      id: 'test-hike',
+      name: '測試登山',
+      tripType: TripType.hiking,
+      proOnly: false,
+      description: '測試用',
     );
 
     final list = repository.createFromDraft(
@@ -66,19 +73,23 @@ void main() {
       weatherConditions: const <WeatherCondition>{},
     );
 
-    expect(items, hasLength(48));
+    expect(items, hasLength(62));
     expect(items.map((item) => item.categoryName).toSet(), {
       '背包系統',
       '睡眠系統',
       '衣物用品',
       '身上穿戴',
-      '食物+水',
-      '餐具+飲水',
-      '登山用具',
+      '食物',
+      '餐具',
+      '裝水容器',
+      '炊事',
+      '用具',
+      '安全導航',
       '個人物品',
     });
     expect(items.every((item) => item.weightGram == 0), isTrue);
-    expect(items.singleWhere((item) => item.name == '塩糖').quantity, 2);
+    // 鹽糖為選配食物 → 不套天數倍率，維持固定數量 2。
+    expect(items.singleWhere((item) => item.name == '鹽糖').quantity, 2);
     expect(items.any((item) => item.name.contains('總重量')), isFalse);
     expect(
       items.any(

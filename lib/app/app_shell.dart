@@ -22,6 +22,8 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final repository = AppScope.of(context);
     return Scaffold(
+      // 內容延伸到浮動膠囊底下，讓導覽列版位透明、不再出現滿寬灰色橫條。
+      extendBody: true,
       body: Column(
         children: [
           if (repository.hasSaveError) const _SaveErrorBanner(),
@@ -43,29 +45,16 @@ class _AppShellState extends State<AppShell> {
               heroTag: 'home-help-button',
               tooltip: '操作說明',
               backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.onPrimary,
+              foregroundColor: Colors.white,
               elevation: 2,
               onPressed: () => _showHomeHelp(context),
               child: const Icon(Icons.info_outline_rounded),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _FloatingNavBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.checklist_rounded),
-            label: '清單',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.view_list_outlined),
-            label: '範本',
-          ),
-          NavigationDestination(icon: Icon(Icons.person_outline), label: '設定'),
-        ],
+        onSelected: (index) => setState(() => _selectedIndex = index),
       ),
     );
   }
@@ -123,6 +112,156 @@ class _AppShellState extends State<AppShell> {
           ),
         );
       },
+    );
+  }
+}
+
+/// LINE 風「浮動膠囊」導覽列。取代 Material `NavigationBar`。
+///
+/// 樣式對照 Figma Bottom Nav component set（node 32:62）：
+/// dock 用 `palette.surface` + `StadiumBorder`，選中膠囊用 `palette.border`，
+/// 選中前景橘、未選 `palette.textTertiary`；選中=實心圖示、未選=線條圖示。
+/// 寬度包住內容並置中，深/淺色隨主題自動切換。
+class _FloatingNavBar extends StatelessWidget {
+  const _FloatingNavBar({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  static const _tabs = <_NavTabData>[
+    _NavTabData(
+      label: '主頁',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+    ),
+    _NavTabData(
+      label: '範本',
+      icon: Icons.description_outlined,
+      selectedIcon: Icons.description,
+    ),
+    _NavTabData(
+      label: '設定',
+      icon: Icons.settings_outlined,
+      selectedIcon: Icons.settings,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        // heightFactor: 1.0 → 高度只包住膠囊，避免在 bottomNavigationBar
+        // 版位垂直撐滿而把內文區壓扁；水平置中不寫死寬度。
+        child: Align(
+          alignment: Alignment.center,
+          heightFactor: 1,
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: palette.surface,
+              shape: const StadiumBorder(),
+              shadows: const [
+                BoxShadow(
+                  color: Color(0x2E000000), // 黑 18%
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 8,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < _tabs.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    _NavTab(
+                      data: _tabs[i],
+                      selected: i == selectedIndex,
+                      onTap: () => onSelected(i),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavTabData {
+  const _NavTabData({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
+class _NavTab extends StatelessWidget {
+  const _NavTab({
+    required this.data,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavTabData data;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final foreground = selected ? AppColors.primary : palette.textTertiary;
+    return Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: selected ? palette.border : Colors.transparent,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Padding(
+            // 所有 tab 尺寸一致 → 切換時不位移。
+            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 7),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? data.selectedIcon : data.icon,
+                  size: 24,
+                  color: foreground,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  data.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

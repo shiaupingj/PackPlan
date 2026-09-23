@@ -99,29 +99,6 @@ abstract final class AppTheme {
         textColor: p.textPrimary,
         collapsedTextColor: p.textPrimary,
       ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: p.background,
-        elevation: 0,
-        indicatorColor: p.surfaceElevated,
-        iconTheme: WidgetStateProperty.resolveWith(
-          (states) => IconThemeData(
-            color: states.contains(WidgetState.selected)
-                ? AppColors.primary
-                : p.textTertiary,
-          ),
-        ),
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (states) => TextStyle(
-            fontFamily: AppTypography.fontFamily,
-            fontFamilyFallback: AppTypography.fontFamilyFallback,
-            color: states.contains(WidgetState.selected)
-                ? AppColors.primary
-                : p.textTertiary,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: p.surfaceElevated,
         contentTextStyle: TextStyle(
