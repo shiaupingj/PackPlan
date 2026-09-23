@@ -390,10 +390,7 @@ class _ProUpgradeCard extends StatelessWidget {
   }
 }
 
-/// 設定頁「資料管理」的雲端備份卡片(v1:手動備份 / 還原)。
-///
-/// Android 用 Google Drive、iOS 待接 iCloud;依 [CloudBackupService] 狀態
-/// 顯示「連結帳號 / 備份 / 還原」。還原沿用「取代目前資料」確認框。
+/// 「資料管理」區的雲端備份卡片：連結帳號、立即備份、多版本清單（還原／刪除）。
 class _CloudBackupCard extends StatefulWidget {
   const _CloudBackupCard();
 
@@ -404,9 +401,12 @@ class _CloudBackupCard extends StatefulWidget {
 class _CloudBackupCardState extends State<_CloudBackupCard> {
   bool _loading = true;
   bool _busy = false;
-  bool _supported = false;
-  bool _signedIn = false;
-  DateTime? _lastBackup;
+  bool _available = false;
+  String? _accountLabel;
+  List<CloudBackupEntry> _entries = const [];
+
+  // 顯示用的平台名稱（iOS=iCloud、Android=Google Drive）。
+  String get _serviceName => Platform.isIOS ? 'iCloud' : 'Google Drive';
 
   CloudBackupService get _service => CloudBackupScope.of(context);
 
@@ -417,110 +417,93 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
   }
 
   Future<void> _refresh() async {
-    final service = _service;
-    var signedIn = false;
-    DateTime? last;
-    final supported = service.isSupported;
-    if (supported) {
-      signedIn = await service.isSignedIn();
-      if (signedIn) last = await service.lastBackupTime();
+    setState(() => _loading = true);
+    try {
+      final service = _service;
+      final available = await service.isAvailable();
+      final label = available ? await service.accountLabel() : null;
+      final entries = available ? await service.list() : <CloudBackupEntry>[];
+      if (!mounted) return;
+      setState(() {
+        _available = available;
+        _accountLabel = label;
+        _entries = entries;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _available = false;
+        _entries = const [];
+        _loading = false;
+      });
     }
-    if (!mounted) return;
-    setState(() {
-      _supported = supported;
-      _signedIn = signedIn;
-      _lastBackup = last;
-      _loading = false;
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } on CloudBackupException catch (error) {
+      _snack(error.message);
+    } catch (_) {
+      _snack('雲端操作失敗，請稍後再試');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _connect() => _run(() async {
+    final connected = await _service.connect();
+    if (!connected) {
+      _snack('尚未連結 $_serviceName');
+      return;
+    }
+    await _refresh();
+  });
+
+  Future<void> _backupNow() => _run(() async {
+    final repository = AppScope.of(context);
+    final bytes = BackupCodec.encode(
+      lists: repository.lists,
+      settings: repository.settings,
+    );
+    await _service.upload(bytes);
+    await _refresh();
+    _snack('已備份到 $_serviceName');
+  });
+
+  Future<void> _restore(CloudBackupEntry entry) async {
+    final confirmed = await _confirm(
+      title: '從這份備份還原？',
+      message:
+          '將以 ${_formatTime(entry.createdAt)} 的備份取代目前所有清單與偏好設定，'
+          '此動作無法復原。',
+      confirmLabel: '還原',
+    );
+    if (confirmed != true) return;
+    await _run(() async {
+      final repository = AppScope.of(context);
+      final bytes = await _service.download(entry);
+      final backup = BackupCodec.decode(bytes);
+      repository.replaceAllData(lists: backup.lists, settings: backup.settings);
+      _snack('已還原 ${backup.lists.length} 份清單');
     });
   }
 
-  Future<void> _connect() async {
-    setState(() => _busy = true);
-    try {
-      final ok = await _service.signIn();
-      if (!mounted) return;
-      if (ok) {
-        await _refresh();
-      } else {
-        ProfileScreen._showSnack(context, '未完成登入');
-      }
-    } on Object {
-      if (mounted) ProfileScreen._showSnack(context, '登入失敗,請稍後再試');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _backup() async {
-    final repository = AppScope.of(context);
-    setState(() => _busy = true);
-    try {
-      final bytes = BackupCodec.encode(
-        lists: repository.lists,
-        settings: repository.settings,
-      );
-      await _service.uploadBackup(bytes);
-      final last = await _service.lastBackupTime();
-      if (!mounted) return;
-      setState(() => _lastBackup = last ?? DateTime.now());
-      ProfileScreen._showSnack(context, '已備份到雲端');
-    } on Object {
-      if (mounted) ProfileScreen._showSnack(context, '雲端備份失敗,請稍後再試');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _restore() async {
-    setState(() => _busy = true);
-    try {
-      final backup = await _service.downloadBackup();
-      if (!mounted) return;
-      if (backup == null) {
-        ProfileScreen._showSnack(context, '雲端沒有備份');
-        return;
-      }
-      final decoded = BackupCodec.decode(backup.bytes);
-      if (!mounted) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('從雲端還原並取代目前資料？'),
-          content: Text(
-            '將以雲端備份的 ${decoded.lists.length} 份清單取代目前所有清單與偏好設定。'
-            '此動作無法復原,建議先匯出目前資料。',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('還原'),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true || !mounted) return;
-      AppScope.of(
-        context,
-      ).replaceAllData(lists: decoded.lists, settings: decoded.settings);
-      ProfileScreen._showSnack(context, '已從雲端還原 ${decoded.lists.length} 份清單');
-    } on BackupFormatException catch (error) {
-      if (mounted) ProfileScreen._showSnack(context, error.message);
-    } on Object {
-      if (mounted) ProfileScreen._showSnack(context, '雲端還原失敗,請稍後再試');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  String _formatTime(DateTime time) {
-    final local = time.toLocal();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}';
+  Future<void> _delete(CloudBackupEntry entry) async {
+    final confirmed = await _confirm(
+      title: '刪除這份備份？',
+      message: '將永久刪除 ${_formatTime(entry.createdAt)} 的雲端備份。',
+      confirmLabel: '刪除',
+      destructive: true,
+    );
+    if (confirmed != true) return;
+    await _run(() async {
+      await _service.delete(entry);
+      await _refresh();
+      _snack('已刪除備份');
+    });
   }
 
   @override
@@ -528,85 +511,158 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     final t = Theme.of(context).textTheme;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        child: Column(children: _buildRows(t)),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud_outlined, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('雲端備份', style: t.titleMedium),
+                      Text(_statusLine, style: t.bodySmall),
+                    ],
+                  ),
+                ),
+                if (_loading || _busy)
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ..._buildBody(t),
+          ],
+        ),
       ),
     );
   }
 
-  List<Widget> _buildRows(TextTheme t) {
-    if (_loading) {
-      return const [
-        ListTile(
-          leading: Icon(Icons.cloud_outlined, color: AppColors.primary),
-          title: Text('雲端備份'),
-          subtitle: Text('載入中…'),
-        ),
-      ];
-    }
-    if (!_supported) {
+  String get _statusLine {
+    if (_loading) return '正在檢查 $_serviceName…';
+    if (!_available) return '尚未連結 $_serviceName';
+    final account = _accountLabel;
+    return account == null ? '透過 $_serviceName' : '$_serviceName · $account';
+  }
+
+  List<Widget> _buildBody(TextTheme t) {
+    if (_loading) return const [SizedBox.shrink()];
+
+    if (!_available) {
       return [
-        ListTile(
-          leading: Icon(
-            Icons.cloud_off_outlined,
-            color: context.palette.textTertiary,
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _connect,
+            icon: const Icon(Icons.link),
+            label: Text('連結 $_serviceName'),
           ),
-          title: const Text('雲端備份'),
-          subtitle: const Text('此平台即將支援(iCloud 規劃中)'),
-          enabled: false,
         ),
       ];
     }
-    if (!_signedIn) {
-      return [
-        ListTile(
-          leading: const Icon(Icons.cloud_outlined, color: AppColors.primary),
-          title: const Text('連結雲端帳號'),
-          subtitle: const Text('登入後即可備份與還原'),
-          trailing: _busy
-              ? const _MiniSpinner()
-              : const Icon(Icons.chevron_right),
-          onTap: _busy ? null : _connect,
-        ),
-      ];
-    }
+
     return [
-      ListTile(
-        leading: const Icon(Icons.backup_outlined, color: AppColors.primary),
-        title: const Text('備份到雲端'),
-        subtitle: Text(
-          _lastBackup == null ? '尚未備份' : '最後備份 ${_formatTime(_lastBackup!)}',
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _busy ? null : _backupNow,
+          icon: const Icon(Icons.backup_outlined),
+          label: const Text('立即備份到雲端'),
         ),
-        trailing: _busy
-            ? const _MiniSpinner()
-            : const Icon(Icons.chevron_right),
-        onTap: _busy ? null : _backup,
       ),
-      const Divider(height: 1),
-      ListTile(
-        leading: const Icon(
-          Icons.cloud_download_outlined,
-          color: AppColors.primary,
-        ),
-        title: const Text('從雲端還原'),
-        subtitle: const Text('以雲端備份取代目前資料'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: _busy ? null : _restore,
-      ),
+      const SizedBox(height: AppSpacing.md),
+      if (_entries.isEmpty)
+        Text('尚無雲端備份，點上方按鈕建立第一份。', style: t.bodySmall)
+      else ...[
+        Text('備份版本（${_entries.length}）', style: t.labelLarge),
+        const SizedBox(height: AppSpacing.xs),
+        for (final entry in _entries) _versionTile(entry, t),
+      ],
     ];
   }
-}
 
-class _MiniSpinner extends StatelessWidget {
-  const _MiniSpinner();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 18,
-      height: 18,
-      child: CircularProgressIndicator(strokeWidth: 2),
+  Widget _versionTile(CloudBackupEntry entry, TextTheme t) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: const Icon(Icons.history, size: 20),
+      title: Text(_formatTime(entry.createdAt)),
+      subtitle: Text(_formatSize(entry.sizeBytes)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: _busy ? null : () => _restore(entry),
+            child: const Text('還原'),
+          ),
+          IconButton(
+            tooltip: '刪除',
+            onPressed: _busy ? null : () => _delete(entry),
+            icon: Icon(
+              Icons.delete_outline,
+              color: context.palette.textTertiary,
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<bool?> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool destructive = false,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: destructive
+                ? FilledButton.styleFrom(
+                    backgroundColor: AppColors.weightOver,
+                    foregroundColor: AppColors.onWeightOver,
+                  )
+                : null,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  static String _formatTime(DateTime time) {
+    final local = time.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  static String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    final kb = bytes / 1024;
+    if (kb < 1024) return '${kb.toStringAsFixed(kb < 10 ? 1 : 0)} KB';
+    return '${(kb / 1024).toStringAsFixed(1)} MB';
   }
 }
 
