@@ -154,6 +154,11 @@ class PersistentPackListRepository extends ChangeNotifier
   }
 
   @override
+  void upsertItems(String listId, List<PackItem> items) {
+    _delegate.upsertItems(listId, items);
+  }
+
+  @override
   void deleteItem(String listId, String itemId) {
     _delegate.deleteItem(listId, itemId);
   }

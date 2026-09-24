@@ -78,18 +78,22 @@ class ICloudBackupService implements CloudBackupService {
       throw CloudBackupException('無法讀取 iCloud 備份清單：$error');
     }
 
-    final entries = files
-        .where((file) => CloudBackupNaming.isBackupFile(_fileName(file.relativePath)))
-        .map(
-          (file) => CloudBackupEntry(
-            id: file.relativePath,
-            name: _fileName(file.relativePath),
-            createdAt: file.contentChangeDate,
-            sizeBytes: file.sizeInBytes,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final entries =
+        files
+            .where(
+              (file) =>
+                  CloudBackupNaming.isBackupFile(_fileName(file.relativePath)),
+            )
+            .map(
+              (file) => CloudBackupEntry(
+                id: file.relativePath,
+                name: _fileName(file.relativePath),
+                createdAt: file.contentChangeDate,
+                sizeBytes: file.sizeInBytes,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return entries;
   }
 

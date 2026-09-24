@@ -51,10 +51,7 @@ class PackListCard extends StatelessWidget {
                   gram: weightGram,
                   unit: weightUnit,
                   prefix: '基重 ',
-                  style: t.headlineMedium?.copyWith(
-                    fontSize: 15,
-                    height: 1.42,
-                  ),
+                  style: t.headlineMedium?.copyWith(fontSize: 15, height: 1.42),
                 ),
               ],
               const SizedBox(height: AppSpacing.md),

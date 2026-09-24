@@ -20,8 +20,7 @@ class CreatePackListDraft {
   final Set<String>? selectedItemKeys;
 }
 
-String packItemSelectionKey(PackItem item) =>
-    '${item.categoryId}:${item.name}';
+String packItemSelectionKey(PackItem item) => '${item.categoryId}:${item.name}';
 
 abstract interface class PackListRepository extends Listenable {
   List<PackList> get lists;
@@ -57,6 +56,9 @@ abstract interface class PackListRepository extends Listenable {
   void deleteList(String listId);
   void toggleItem(String listId, String itemId, bool checked);
   void upsertItem(String listId, PackItem item);
+
+  /// 一次更新多個既有項目(例如帶入參考重量、復原),只通知一次。
+  void upsertItems(String listId, List<PackItem> items);
   void deleteItem(String listId, String itemId);
   void reorderItems(String listId, List<PackItem> reorderedItems);
 }
@@ -323,8 +325,21 @@ class InMemoryPackListRepository extends ChangeNotifier
 
   @override
   void upsertItem(String listId, PackItem item) {
+    if (_upsertItem(listId, item)) notifyListeners();
+  }
+
+  @override
+  void upsertItems(String listId, List<PackItem> items) {
+    var changed = false;
+    for (final item in items) {
+      changed = _upsertItem(listId, item) || changed;
+    }
+    if (changed) notifyListeners();
+  }
+
+  bool _upsertItem(String listId, PackItem item) {
     final listIndex = _lists.indexWhere((list) => list.id == listId);
-    if (listIndex == -1) return;
+    if (listIndex == -1) return false;
 
     final list = _lists[listIndex];
     final itemIndex = list.items.indexWhere((current) => current.id == item.id);
@@ -346,7 +361,7 @@ class InMemoryPackListRepository extends ChangeNotifier
     }
 
     _lists[listIndex] = list.copyWith(items: items, updatedAt: DateTime.now());
-    notifyListeners();
+    return true;
   }
 
   @override
@@ -530,10 +545,7 @@ class InMemoryPackListRepository extends ChangeNotifier
     return items;
   }
 
-  bool _hasEquivalentWeatherItem(
-    List<PackItem> items,
-    PackItem weatherItem,
-  ) {
+  bool _hasEquivalentWeatherItem(List<PackItem> items, PackItem weatherItem) {
     final aliases = switch (weatherItem.id) {
       'rain-cover' => const {'背包套', '防雨衣物'},
       'wind-shell' => const {'防風外套'},

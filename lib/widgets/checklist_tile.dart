@@ -13,6 +13,8 @@ class ChecklistTile extends StatelessWidget {
     required this.weightGram,
     this.weightLabel,
     this.showWeight = true,
+    this.weightMissing = false,
+    this.weightTooltip,
     required this.checked,
     this.onChanged,
     this.onEdit,
@@ -27,6 +29,12 @@ class ChecklistTile extends StatelessWidget {
   final int weightGram;
   final String? weightLabel;
   final bool showWeight;
+
+  /// 尚未填重量:以淡色「— g」取代 0 g。
+  final bool weightMissing;
+
+  /// 非 null 時在重量後加 ☁,點一下顯示此說明(線上參考值與範圍)。
+  final String? weightTooltip;
   final bool checked;
   final ValueChanged<bool>? onChanged;
   final VoidCallback? onEdit;
@@ -82,13 +90,37 @@ class ChecklistTile extends StatelessWidget {
                           if (showWeight) ...[
                             const TextSpan(text: ' '),
                             TextSpan(
-                              text: weightLabel ?? '${weightGram}g',
+                              text: weightMissing
+                                  ? '—\u00A0g'
+                                  : weightLabel ?? '${weightGram}g',
                               style: t.bodyMedium?.copyWith(
                                 fontFamily: AppTypography.fontFamily,
                                 fontFamilyFallback:
                                     AppTypography.fontFamilyFallback,
+                                color: weightMissing
+                                    ? context.palette.textTertiary
+                                    : null,
                               ),
                             ),
+                            if (weightTooltip != null && !weightMissing)
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Tooltip(
+                                  message: weightTooltip,
+                                  triggerMode: TooltipTriggerMode.tap,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: Icon(
+                                      Icons.cloud_outlined,
+                                      key: const ValueKey('weight-online-icon'),
+                                      size: 16,
+                                      color: checked || dimmed
+                                          ? context.palette.textTertiary
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ],
                       ),

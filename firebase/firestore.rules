@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// PackPlan 線上參考重量:App 只能讀,寫入一律透過 Admin SDK(匯入腳本,不受規則限制)。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /gear_weights/{itemKey} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /meta/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

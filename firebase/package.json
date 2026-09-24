@@ -1,0 +1,21 @@
+{
+  "name": "packplan-firebase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "firebase login",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "check:rules": "bash check_rules.sh",
+    "import:dry": "node import_gear_weights.mjs ~/dev_data/PackPlan/gear_weights.xlsx",
+    "import:apply": "node import_gear_weights.mjs ~/dev_data/PackPlan/gear_weights.xlsx --apply",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "read-excel-file": "^9.3.10"
+  },
+  "devDependencies": {
+    "exceljs": "^4.4.0",
+    "firebase-tools": "^14.0.0"
+  }
+}

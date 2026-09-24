@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app/app_scope.dart';
+import '../app/weight_reference_scope.dart';
+import '../data/weight_reference_repository.dart';
+import '../models/gear_weight.dart';
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
 import '../models/user_settings.dart';
@@ -15,6 +18,7 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_buttons.dart';
 import '../widgets/checklist_tile.dart';
+import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weight_bar.dart';
 
 class PackDetailScreen extends StatefulWidget {
@@ -28,6 +32,28 @@ class PackDetailScreen extends StatefulWidget {
 
 class _PackDetailScreenState extends State<PackDetailScreen> {
   bool _ulMode = false;
+  WeightReferenceRepository? _references;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final references = WeightReferenceScope.of(context);
+    if (!identical(references, _references)) {
+      _references?.removeListener(_handleReferencesChanged);
+      _references = references..addListener(_handleReferencesChanged);
+      references.load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _references?.removeListener(_handleReferencesChanged);
+    super.dispose();
+  }
+
+  void _handleReferencesChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +74,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final containers = _containerItems(list.items);
     final categoryNames = _categoryNames(list.items);
     final categoryIdByName = _categoryIdByName(list.items);
+    final missingWeightItems = list.items
+        .where((item) => item.isWeightMissing)
+        .toList();
+    final onlineWeightCount = list.items
+        .where((item) => item.weightSource == WeightSource.online)
+        .length;
 
     return Scaffold(
       appBar: AppBar(
@@ -84,8 +116,21 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
               summary: summary,
               unit: settings.weightUnit,
               heaviestItem: WeightCalculator.heaviestItem(list),
+              onlineWeightCount: onlineWeightCount,
             ),
             const SizedBox(height: AppSpacing.md),
+            if (missingWeightItems.isNotEmpty) ...[
+              _MissingWeightBanner(
+                count: missingWeightItems.length,
+                onFill: () => _fillMissingWeights(
+                  context,
+                  list.id,
+                  missingWeightItems,
+                  settings.weightUnit,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
           ],
           Row(
             children: [
@@ -140,6 +185,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
               ulMode: _ulMode,
               unit: settings.weightUnit,
               showWeight: list.showWeight,
+              references: _references!,
               onChanged: (item, checked) =>
                   repository.toggleItem(list.id, item.id, checked),
               onEdit: (item) => _showItemEditor(
@@ -172,6 +218,39 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _fillMissingWeights(
+    BuildContext context,
+    String listId,
+    List<PackItem> missingItems,
+    WeightUnit unit,
+  ) async {
+    final repository = AppScope.of(context);
+    final updated = await showWeightFillSheet(
+      context,
+      items: missingItems,
+      references: _references!,
+      unit: unit,
+    );
+    if (updated == null || updated.isEmpty || !context.mounted) return;
+
+    final updatedIds = {for (final item in updated) item.id};
+    final originals = missingItems
+        .where((item) => updatedIds.contains(item.id))
+        .toList();
+    repository.upsertItems(listId, updated);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('已帶入 ${updated.length} 項參考重量'),
+          action: SnackBarAction(
+            label: '復原',
+            onPressed: () => repository.upsertItems(listId, originals),
+          ),
+        ),
+      );
   }
 
   void _showShareSheet(BuildContext context, PackList list, WeightUnit unit) {
@@ -555,11 +634,13 @@ class _WeightHeader extends StatelessWidget {
     required this.summary,
     required this.unit,
     required this.heaviestItem,
+    required this.onlineWeightCount,
   });
 
   final WeightSummary summary;
   final WeightUnit unit;
   final PackItem? heaviestItem;
+  final int onlineWeightCount;
 
   @override
   Widget build(BuildContext context) {
@@ -597,12 +678,27 @@ class _WeightHeader extends StatelessWidget {
               '上限 ${WeightFormatters.gram(summary.limitGram, unit: unit)}',
               style: t.bodySmall,
             ),
-            if (heaviestItem case final item?) ...[
+            if (heaviestItem case final item?
+                when item.totalWeightGram > 0) ...[
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '最重項目 ${item.name} · '
                 '${WeightFormatters.gram(item.totalWeightGram, unit: unit)}',
                 style: t.bodySmall,
+              ),
+            ],
+            if (onlineWeightCount > 0) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.cloud_outlined,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text('含 $onlineWeightCount 項線上參考重量', style: t.bodySmall),
+                ],
               ),
             ],
             const SizedBox(height: AppSpacing.md),
@@ -613,6 +709,41 @@ class _WeightHeader extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MissingWeightBanner extends StatelessWidget {
+  const _MissingWeightBanner({required this.count, required this.onFill});
+
+  final int count;
+  final VoidCallback onFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text('$count 項尚未填重量', style: t.bodyMedium)),
+          TextButton.icon(
+            key: const ValueKey('fill-missing-weights'),
+            onPressed: onFill,
+            icon: const Icon(Icons.cloud_download_outlined, size: 18),
+            label: const Text('帶入參考重量'),
+          ),
+        ],
       ),
     );
   }
@@ -922,6 +1053,7 @@ class _CategorySection extends StatelessWidget {
     required this.ulMode,
     required this.unit,
     required this.showWeight,
+    required this.references,
     required this.onChanged,
     required this.onEdit,
     required this.onDelete,
@@ -936,6 +1068,7 @@ class _CategorySection extends StatelessWidget {
   final bool ulMode;
   final WeightUnit unit;
   final bool showWeight;
+  final WeightReferenceRepository references;
   final void Function(PackItem item, bool checked) onChanged;
   final ValueChanged<PackItem> onEdit;
   final ValueChanged<PackItem> onDelete;
@@ -1026,6 +1159,16 @@ class _CategorySection extends StatelessWidget {
                             unit: unit,
                           ),
                           showWeight: showWeight,
+                          weightMissing: item.isWeightMissing,
+                          weightTooltip:
+                              item.weightSource == WeightSource.online
+                              ? WeightReferenceLabels.tooltip(
+                                  item.catalogKey == null
+                                      ? null
+                                      : references.lookup(item.catalogKey!),
+                                  unit,
+                                )
+                              : null,
                           checked: item.checked,
                           dimmed:
                               ulMode &&
@@ -1409,6 +1552,13 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   late String _lastCategoryName;
   bool _isAddingCategory = false;
 
+  /// 在這次編輯中從線上參考重量帶入的資料;重量沒再被改動就記為線上來源。
+  GearWeight? _appliedReference;
+  bool _lookingUpReference = false;
+
+  /// 查不到參考值時顯示在按鈕下方(SnackBar 會被對話框遮住)。
+  String? _referenceNotice;
+
   String? get _defaultContainerItemId {
     for (final container in widget.containers) {
       if (container.id != widget.item?.id) return container.id;
@@ -1549,6 +1699,34 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.next,
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey('item-editor-weight-reference'),
+                onPressed: _lookingUpReference ? null : _pickReference,
+                icon: _lookingUpReference
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_download_outlined, size: 18),
+                label: const Text('帶入參考值'),
+              ),
+            ),
+            if (_referenceHint(context) case final hint?)
+              Text(
+                hint,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+              )
+            else if (_referenceNotice case final notice?)
+              Text(
+                notice,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.palette.textSecondary,
+                ),
+              ),
             TextField(
               controller: _quantityController,
               decoration: const InputDecoration(labelText: '數量'),
@@ -1676,6 +1854,76 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     );
   }
 
+  GearWeight? get _currentReference {
+    if (_appliedReference != null) return _appliedReference;
+    final item = widget.item;
+    if (item?.weightSource != WeightSource.online || item?.catalogKey == null) {
+      return null;
+    }
+    return WeightReferenceScope.of(context).lookup(item!.catalogKey!);
+  }
+
+  String? _referenceHint(BuildContext context) {
+    final reference = _currentReference;
+    if (reference == null) return null;
+    final unit = AppScope.of(context).settings.weightUnit;
+    final range = reference.hasRange
+        ? '（範圍 ${WeightReferenceLabels.range(reference, unit)}）'
+        : '';
+    return '☁ 線上參考 '
+        '${WeightFormatters.gram(reference.weightGram, unit: unit)}$range';
+  }
+
+  Future<void> _pickReference() async {
+    final references = WeightReferenceScope.of(context);
+    final unit = AppScope.of(context).settings.weightUnit;
+    final name = _nameController.text.trim();
+
+    setState(() {
+      _lookingUpReference = true;
+      _referenceNotice = null;
+    });
+    await references.load();
+    if (!references.hasData) await references.syncQuietly();
+    if (!mounted) return;
+    setState(() => _lookingUpReference = false);
+
+    // 比對到型號時,改列出它所屬的通用項目與同系列型號。
+    final match = references.match(
+      catalogKey: _appliedReference?.key ?? widget.item?.catalogKey,
+      name: name,
+    );
+    final parentKey = match?.parentKey ?? match?.key;
+    final generic = parentKey == null ? null : references.lookup(parentKey);
+    final variants = parentKey == null
+        ? const <GearWeight>[]
+        : references.variantsOf(parentKey);
+    if (generic == null && variants.isEmpty) {
+      setState(() {
+        _referenceNotice = name.isEmpty
+            ? '請先輸入名稱再查參考重量'
+            : references.hasData
+            ? '查無「$name」的參考重量'
+            : '目前沒有可用的參考重量，請確認網路後再試';
+      });
+      return;
+    }
+
+    final picked = await showWeightReferencePicker(
+      context,
+      generic: generic,
+      variants: variants,
+      references: references,
+      unit: unit,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _appliedReference = picked;
+      _weightController.text = '${picked.weightGram}';
+      if (picked.isVariant) _nameController.text = picked.nameZh;
+    });
+  }
+
   void _save() {
     final name = _nameController.text.trim();
     final category = _categoryController.text.trim();
@@ -1687,6 +1935,15 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       ).showSnackBar(const SnackBar(content: Text('請填寫名稱與分類；重量、數量不可小於 0')));
       return;
     }
+
+    final existing = widget.item;
+    final reference = _appliedReference;
+    // 剛帶入且沒再改 → 線上;重量沒動 → 保留原來源(如尚未填);其餘算使用者自填。
+    final weightSource = reference != null && reference.weightGram == weight
+        ? WeightSource.online
+        : existing != null && existing.weightGram == weight
+        ? existing.weightSource
+        : WeightSource.manual;
 
     final nowId = DateTime.now().microsecondsSinceEpoch;
     final item =
@@ -1720,9 +1977,13 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               containerItemId: _isContainer || _weightClass == WeightClass.worn
                   ? null
                   : _containerItemId,
+              weightSource: weightSource,
             );
+    final saved = reference == null
+        ? item
+        : item.copyWith(catalogKey: reference.key);
 
-    Navigator.of(context).pop(_ItemEditorResult.save(item));
+    Navigator.of(context).pop(_ItemEditorResult.save(saved));
   }
 
   void _handleCategoryChanged() {

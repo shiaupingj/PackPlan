@@ -153,7 +153,8 @@ class GoogleDriveBackupService implements CloudBackupService {
   Future<String> _ensureFolder(drive.DriveApi api) async {
     final result = await api.files.list(
       spaces: 'drive',
-      q: "mimeType = '$_folderMime' and name = '$_folderName' "
+      q:
+          "mimeType = '$_folderMime' and name = '$_folderName' "
           'and trashed = false',
       $fields: 'files(id)',
     );

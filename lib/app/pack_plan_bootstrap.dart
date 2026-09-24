@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/pack_list_repository.dart';
+import '../data/weight_reference_repository.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
@@ -13,10 +14,12 @@ class PackPlanBootstrap extends StatefulWidget {
     super.key,
     required this.initialize,
     required this.resetLocalData,
+    this.weightReferenceRepository,
   });
 
   final RepositoryInitializer initialize;
   final LocalDataResetter resetLocalData;
+  final WeightReferenceRepository? weightReferenceRepository;
 
   @override
   State<PackPlanBootstrap> createState() => _PackPlanBootstrapState();
@@ -87,7 +90,10 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
       future: _initialization,
       builder: (context, snapshot) {
         if (snapshot.hasData) {
-          return PackPlanApp(repository: snapshot.requireData);
+          return PackPlanApp(
+            repository: snapshot.requireData,
+            weightReferenceRepository: widget.weightReferenceRepository,
+          );
         }
         return MaterialApp(
           title: 'PackPlan',

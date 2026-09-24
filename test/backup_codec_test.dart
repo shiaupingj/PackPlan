@@ -66,9 +66,7 @@ void main() {
 
   test('backup round trip preserves themeMode', () {
     final source = InMemoryPackListRepository();
-    source.updateSettings(
-      const UserSettings(themeMode: ThemeMode.light),
-    );
+    source.updateSettings(const UserSettings(themeMode: ThemeMode.light));
 
     final backup = BackupCodec.decode(
       BackupCodec.encode(lists: source.lists, settings: source.settings),
@@ -140,6 +138,82 @@ void main() {
     );
 
     expect(backup.lists.first.items.first.weightClass, WeightClass.packed);
+  });
+
+  test('backup round trip preserves weightSource and catalogKey', () {
+    final source = InMemoryPackListRepository();
+    final firstList = source.lists.first;
+    final shirt = firstList.items.singleWhere((item) => item.id == 'shirt');
+    source.upsertItem(
+      firstList.id,
+      shirt.copyWith(
+        weightSource: WeightSource.online,
+        catalogKey: 'base-layer',
+      ),
+    );
+
+    final backup = BackupCodec.decode(
+      BackupCodec.encode(lists: source.lists, settings: source.settings),
+    );
+    final decoded = backup.lists
+        .singleWhere((list) => list.id == firstList.id)
+        .items
+        .singleWhere((item) => item.id == 'shirt');
+
+    expect(decoded.weightSource, WeightSource.online);
+    expect(decoded.catalogKey, 'base-layer');
+  });
+
+  test('legacy items without weightSource infer it from weight', () {
+    final source = InMemoryPackListRepository();
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+    );
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+    final firstList =
+        (json['lists']! as List<Object?>).first as Map<String, Object?>;
+    final items = (firstList['items']! as List<Object?>)
+        .cast<Map<String, Object?>>();
+    for (final item in items) {
+      item.remove('weightSource');
+      item.remove('catalogKey');
+    }
+    items.first['weightGram'] = 0;
+
+    final backup = BackupCodec.decode(
+      Uint8List.fromList(utf8.encode(jsonEncode(json))),
+    );
+    final decodedItems = backup.lists.first.items;
+
+    expect(decodedItems.first.weightSource, WeightSource.unset);
+    expect(
+      decodedItems
+          .skip(1)
+          .every((item) => item.weightSource == WeightSource.manual),
+      isTrue,
+    );
+    expect(decodedItems.every((item) => item.catalogKey == null), isTrue);
+  });
+
+  test('decode rejects unknown weightSource', () {
+    final source = InMemoryPackListRepository();
+    final bytes = BackupCodec.encode(
+      lists: source.lists,
+      settings: source.settings,
+    );
+    final json = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+    final firstList =
+        (json['lists']! as List<Object?>).first as Map<String, Object?>;
+    final firstItem =
+        (firstList['items']! as List<Object?>).first as Map<String, Object?>;
+    firstItem['weightSource'] = 'guess';
+
+    expect(
+      () =>
+          BackupCodec.decode(Uint8List.fromList(utf8.encode(jsonEncode(json)))),
+      throwsA(isA<BackupFormatException>()),
+    );
   });
 
   test('repository can replace all data with decoded backup', () {

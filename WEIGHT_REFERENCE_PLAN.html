@@ -1,0 +1,379 @@
+<title>PackPlan 參考重量</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F5F5F5;
+    --surface: #FFFFFF;
+    --surface-muted: #ECECEC;
+    --ink: #1A1A1A;
+    --ink-2: #555555;
+    --ink-3: #8A8A8A;
+    --line: #E2E2E2;
+    --accent: #FF6B00;
+    --accent-text: #C24B00;
+    --accent-soft: #FFF1E5;
+    --done: #2F7D4F;
+    --done-soft: #E6F3EB;
+    --todo: #8A6400;
+    --todo-soft: #FBF1D9;
+    --code-bg: #F0EEEC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0B0B0B;
+      --surface: #181818;
+      --surface-muted: #222222;
+      --ink: #F4F4F4;
+      --ink-2: #B5B5B5;
+      --ink-3: #7C7C7C;
+      --line: #313131;
+      --accent: #FF6B00;
+      --accent-text: #FF9C3A;
+      --accent-soft: #2A1300;
+      --done: #7BCB98;
+      --done-soft: #12281B;
+      --todo: #F2C35B;
+      --todo-soft: #2A2110;
+      --code-bg: #1F1F1F;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0B0B0B;
+    --surface: #181818;
+    --surface-muted: #222222;
+    --ink: #F4F4F4;
+    --ink-2: #B5B5B5;
+    --ink-3: #7C7C7C;
+    --line: #313131;
+    --accent: #FF6B00;
+    --accent-text: #FF9C3A;
+    --accent-soft: #2A1300;
+    --done: #7BCB98;
+    --done-soft: #12281B;
+    --todo: #F2C35B;
+    --todo-soft: #2A2110;
+    --code-bg: #1F1F1F;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    padding-inline: 16px;
+    padding-block: 40px 72px;
+  }
+  .page { max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; gap: 48px; }
+
+  code, .mono {
+    font-family: "Roboto Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.88em;
+  }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px; }
+
+  header { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.12em; color: var(--accent-text);
+    font-weight: 500; text-transform: uppercase;
+  }
+  h1 { font-size: clamp(28px, 6vw, 38px); line-height: 1.25; margin: 0; font-weight: 700; text-wrap: balance; }
+  .lede { margin: 0; color: var(--ink-2); max-width: 62ch; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--ink-3); font-size: 13px; }
+
+  section { display: flex; flex-direction: column; gap: 16px; }
+  h2 {
+    font-size: 21px; margin: 0; font-weight: 700; display: flex; align-items: baseline; gap: 10px;
+    text-wrap: balance;
+  }
+  h2 .n { font-family: "Roboto Mono", ui-monospace, monospace; color: var(--accent-text); font-size: 15px; font-weight: 500; }
+  h3 { font-size: 16px; margin: 8px 0 0; font-weight: 700; }
+  p { margin: 0; max-width: 68ch; }
+  ul, ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 500; color: var(--ink-3); font-size: 12.5px; letter-spacing: 0.04em; background: var(--surface-muted); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, .num { font-variant-numeric: tabular-nums; font-family: "Roboto Mono", ui-monospace, monospace; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    font-size: 12.5px; font-weight: 500; padding: 2px 10px; border-radius: 999px;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill.done { color: var(--done); background: var(--done-soft); }
+  .pill.todo { color: var(--todo); background: var(--todo-soft); }
+  .pill.you  { color: var(--accent-text); background: var(--accent-soft); }
+  .req { color: var(--accent-text); font-weight: 700; }
+
+  /* 進度總覽 */
+  .progress { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .progress-row {
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  .progress-row:last-child { border-bottom: 0; }
+  .progress-row .commit { grid-column: 1 / -1; color: var(--ink-3); font-size: 12.5px; }
+  .bar { height: 6px; background: var(--surface-muted); border-radius: 999px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 55.6%; background: var(--accent); border-radius: 999px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); }
+
+  /* 決策清單 */
+  .decisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .decision { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .decision .q { font-size: 12.5px; color: var(--ink-3); }
+  .decision .a { font-weight: 500; }
+
+  .note {
+    background: var(--accent-soft); border-radius: 10px; padding: 12px 16px; font-size: 14px;
+    color: var(--ink);
+  }
+  .note strong { color: var(--accent-text); }
+
+  pre {
+    margin: 0; background: var(--code-bg); border-radius: 10px; padding: 14px 16px; overflow-x: auto;
+    font-family: "Roboto Mono", ui-monospace, monospace; font-size: 13px; line-height: 1.65;
+  }
+  pre .c { color: var(--ink-3); }
+
+  /* UI 示意 */
+  .mock { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .phone { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .phone .cap { font-size: 12px; color: var(--ink-3); }
+  .banner { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; }
+  .btn { background: var(--accent); color: #050505; border-radius: 8px; padding: 4px 10px; font-weight: 500; font-size: 13px; white-space: nowrap; }
+  .row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .w { font-family: "Roboto Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .w.missing { color: var(--ink-3); }
+  .cloud { color: var(--accent-text); margin-left: 4px; }
+  .sub { display: block; font-size: 12px; color: var(--ink-3); }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 10px; }
+  .steps li::before {
+    content: counter(s); width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #050505;
+    font-size: 13px; font-weight: 700; display: grid; place-items: center; margin-top: 2px;
+  }
+  footer { color: var(--ink-3); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow">PackPlan · 開發計劃</div>
+    <h1>參考重量：一鍵補齊缺少的重量</h1>
+    <p class="lede">清單中有顯示重量的地方，提供按鈕把「尚未填重量」的項目，用線上參考重量庫的值補上，並清楚標示哪些重量是線上資料。</p>
+    <div class="meta">
+      <span>更新 2026-09-24</span>
+      <span class="mono">claude/weight-value-supabase-plan-1a960f</span>
+      <span>Firebase <span class="mono">packplan-86e9d</span></span>
+    </div>
+  </header>
+
+  <section aria-labelledby="progress">
+    <h2 id="progress"><span class="n">00</span>進度總覽</h2>
+    <div class="bar-label"><span>9 項中完成 7 項</span><span class="num">78%</span></div>
+    <div class="bar" role="img" aria-label="完成 7/9"><span style="width:77.8%"></span></div>
+    <div class="progress">
+      <div class="progress-row"><span>Firestore 資料庫建立（Standard，asia-east1）</span><span class="pill done">完成</span></div>
+      <div class="progress-row"><span>權限規則上線 + 驗證腳本</span><span class="pill done">完成</span><span class="commit mono">5ca092f · fafd02f</span></div>
+      <div class="progress-row"><span>CSV 範本 + 匯入工具 + 測試</span><span class="pill done">完成</span><span class="commit mono">5ca092f</span></div>
+      <div class="progress-row"><span>CSV 支援品牌型號</span><span class="pill done">完成</span><span class="commit mono">8dee016</span></div>
+      <div class="progress-row"><span>App 第 1 步：資料模型（76 測試綠）</span><span class="pill done">完成</span><span class="commit mono">bc60036</span></div>
+      <div class="progress-row"><span>填寫 CSV 重量 + 首次匯入</span><span class="pill you">需本人操作</span></div>
+      <div class="progress-row"><span>App 第 2 步：串接 Firestore（REST）、快取、比對（90 測試綠）</span><span class="pill done">完成</span></div>
+      <div class="progress-row"><span>App 第 3 步：UI ①〜⑤ + 開 App 背景同步（96 測試綠、模擬器實測）</span><span class="pill done">完成</span></div>
+      <div class="progress-row"><span>真機測試（iOS / Android）</span><span class="pill todo">待做</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="decisions">
+    <h2 id="decisions"><span class="n">01</span>已定案決策</h2>
+    <div class="decisions">
+      <div class="decision"><span class="q">線上資料誰維護</span><span class="a">只由本人維護（xlsx → CSV → 匯入）</span></div>
+      <div class="decision"><span class="q">單項補</span><span class="a">v1 就做</span></div>
+      <div class="decision"><span class="q">自訂項目</span><span class="a">名稱／別名正規化後精確比對</span></div>
+      <div class="decision"><span class="q">重量範圍</span><span class="a">顯示範圍；帶入典型值，只填範圍取中間值</span></div>
+      <div class="decision"><span class="q">品牌型號</span><span class="a">掛在通用項目下一層；選型號時項目名稱改成型號名</span></div>
+      <div class="decision"><span class="q">後端</span><span class="a">Firebase Firestore，不用 Supabase</span></div>
+    </div>
+    <p class="note"><strong>為何改用 Firebase：</strong>Supabase 免費方案一個帳號最多 2 個 active 專案（已用滿），且 7 天閒置會自動暫停；Firestore 免費額度（每天 5 萬次讀取、1 GB）足夠，也不會暫停。</p>
+  </section>
+
+  <section aria-labelledby="backend">
+    <h2 id="backend"><span class="n">02</span>後端架構（Firestore）</h2>
+    <h3><code>gear_weights/{item_key}</code> — 每個項目或型號一份文件</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">nameZh</td><td class="mono">string</td><td>顯示名稱；型號列為完整型號名</td></tr>
+          <tr><td class="mono">parentKey</td><td class="mono">string?</td><td>型號列所屬的通用項目 key</td></tr>
+          <tr><td class="mono">brand</td><td class="mono">string?</td><td>品牌</td></tr>
+          <tr><td class="mono">aliases</td><td class="mono">string[]</td><td>別名，供名稱比對</td></tr>
+          <tr><td class="mono">categoryId</td><td class="mono">string?</td><td>分類參考</td></tr>
+          <tr><td class="mono">weightGram</td><td class="mono">int</td><td>帶入值（典型值，公克）</td></tr>
+          <tr><td class="mono">weightMin / weightMax</td><td class="mono">int?</td><td>參考範圍</td></tr>
+          <tr><td class="mono">note</td><td class="mono">string?</td><td>備註</td></tr>
+          <tr><td class="mono">isActive</td><td class="mono">bool</td><td>false = 下架（不刪文件）</td></tr>
+          <tr><td class="mono">updatedAt</td><td class="mono">timestamp</td><td>增量同步用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><code>meta/gear_weights</code> 存 <code>{ version, activeCount }</code>，App 先讀這 1 筆判斷要不要同步。</p>
+
+    <h3>權限規則（已上線並驗證）</h3>
+    <ul>
+      <li><code>gear_weights</code>、<code>meta</code>：任何人可讀，不可寫</li>
+      <li>其他路徑：全部拒絕</li>
+      <li>寫入只透過匯入腳本（Admin SDK，不受規則限制）</li>
+      <li>驗證：<code>npm run check:rules</code>，4 項全 ✓</li>
+    </ul>
+
+    <h3>同步策略</h3>
+    <ol>
+      <li>App 讀 <code>meta/gear_weights</code>（1 次讀取）</li>
+      <li><code>version</code> 比本機新 → 只抓 <code>updatedAt</code> 晚於上次同步的文件</li>
+      <li>全部快取在手機、比對在本機做 → 離線也能補重量</li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="csv">
+    <h2 id="csv"><span class="n">03</span>CSV 格式</h2>
+    <p>檔案 <code>firebase/gear_weights.csv</code>，已預填 110 個範本項目的 key、名稱、分類，重量待填。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>欄位</th><th>必填？</th><th>規則</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">item_key</td><td class="req">必填</td><td>小寫英數與 <code>-</code>，不可重複</td></tr>
+          <tr><td class="mono">name_zh</td><td class="req">必填</td><td>型號列填完整型號名</td></tr>
+          <tr><td class="mono">weight_gram</td><td>要上傳才填</td><td>與 min/max 三者皆空 → 待填、略過（不算錯）</td></tr>
+          <tr><td class="mono">parent_key</td><td>型號列必填</td><td>通用項目留空；必須是 CSV 內已有的通用 key</td></tr>
+          <tr><td class="mono">brand</td><td>選填</td><td>品牌名稱</td></tr>
+          <tr><td class="mono">aliases</td><td>選填</td><td>以 <code>|</code> 分隔</td></tr>
+          <tr><td class="mono">category_id</td><td>選填</td><td>分類參考</td></tr>
+          <tr><td class="mono">weight_min / weight_max</td><td>選填</td><td>要嘛都填、要嘛都空</td></tr>
+          <tr><td class="mono">note</td><td>選填</td><td>備註</td></tr>
+          <tr><td class="mono">is_active</td><td>選填</td><td>空白 = 上架；<code>false</code> = 下架</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>標題列 11 個欄位都要在（順序可調）</li>
+      <li>重量只能是正整數（公克），不能寫 <code>1.2kg</code>、<code>1,200</code>、<code>0</code></li>
+      <li>任一列錯誤 → 整份不寫入</li>
+      <li>用 xlsx 就不用另存 CSV；若改用 CSV，Excel 存檔選「CSV UTF-8」</li>
+    </ul>
+    <h3>品牌型號範例</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>item_key</th><th>name_zh</th><th>parent_key</th><th>brand</th><th>aliases</th><th>weight_gram</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">large-backpack</td><td>大背包</td><td></td><td></td><td></td><td class="num">1500</td></tr>
+          <tr><td class="mono">osprey-exos-58</td><td>Osprey Exos 58</td><td class="mono">large-backpack</td><td>Osprey</td><td>Exos 58</td><td class="num">1200</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="import">
+    <h2 id="import"><span class="n">04</span>資料維護流程</h2>
+    <p>資料表在 <code>~/dev_data/PackPlan/gear_weights.xlsx</code>（黃色欄位要填；「說明」分頁有規則與範例），直接存 .xlsx 即可，匯入腳本讀 <code>gear_weights</code> 分頁（也仍支援 .csv）。</p>
+<pre>cd firebase
+export GOOGLE_APPLICATION_CREDENTIALS=~/dev_data/PackPlan/&lt;金鑰檔&gt;.json
+npm run import:dry     <span class="c"># 預覽：列出新增／更新／下架</span>
+npm run import:apply   <span class="c"># 實際寫入</span></pre>
+    <ul>
+      <li>只寫入有變動的列；CSV 刪掉的 key 自動標為下架</li>
+      <li>服務帳戶金鑰：Console → 專案設定 → 服務帳戶 → 產生新的私密金鑰（存在 repo 外）</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="app">
+    <h2 id="app"><span class="n">05</span>App 端設計</h2>
+    <h3>資料模型 <span class="pill done">完成</span></h3>
+    <ul>
+      <li><code>weightSource</code>：<code>unset</code>（尚未填）／<code>manual</code>（自填）／<code>online</code>（線上）</li>
+      <li><code>catalogKey</code>：範本 key，自訂項目為 null</li>
+      <li>範本項目建立時 <code>unset</code>；編輯時改了重量 → <code>manual</code>；帶入 → <code>online</code></li>
+      <li>舊資料相容：0 g → <code>unset</code>，其餘 → <code>manual</code></li>
+    </ul>
+
+    <h3>參考重量服務 <span class="pill done">完成</span></h3>
+    <ul>
+      <li><strong>用 Firestore REST API，不裝原生 SDK</strong>：沿用既有 <code>http</code> 套件，免把 iOS 最低版本升到 15、免加 Android Google Services 外掛（避免影響 Drive 登入）</li>
+      <li><code>FirestoreWeightReferenceSource</code> + <code>WeightReferenceRepository</code>（本機快取 + 增量同步）+ <code>WeightReferenceScope</code> 注入</li>
+      <li>比對：<code>catalogKey</code> 精確 → 名稱／別名正規化（去空白、轉小寫）精確比對</li>
+    </ul>
+
+    <h3>UI 位置 <span class="pill done">完成</span></h3>
+    <p>同步時機：開 App 時背景同步一次、按「帶入參考重量」時再同步；離線沿用快取。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>位置</th><th>內容</th></tr></thead>
+        <tbody>
+          <tr><td>① 清單詳情 <code>_WeightHeader</code> 下方</td><td>有缺重量時顯示「N 項尚未填重量 · 帶入參考重量」</td></tr>
+          <tr><td>② 批次補 bottom sheet</td><td>預覽勾選（預設全選）、顯示範圍、查無資料另列、資料來源與更新日；套用後可復原。只帶通用值</td></tr>
+          <tr><td>③ <code>ChecklistTile</code> 重量</td><td>線上值「1200 g ☁」；未填顯示淡色「— g」</td></tr>
+          <tr><td>④ 單項編輯對話框</td><td>「☁ 帶入參考值」；可選通用值或品牌型號，選型號時名稱改為型號名</td></tr>
+          <tr><td>⑤ 總重附註</td><td>「含 N 項線上參考重量」</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mock" aria-label="UI 示意">
+      <div class="phone">
+        <span class="cap">① + ③ 清單詳情（示意）</span>
+        <div class="banner"><span>3 項尚未填重量</span><span class="btn">☁ 帶入參考重量</span></div>
+        <div>
+          <div class="row"><span>大背包</span><span class="w">1500 g<span class="cloud">☁</span></span></div>
+          <div class="row"><span>睡袋</span><span class="w missing">— g</span></div>
+          <div class="row"><span>頭燈</span><span class="w">90 g</span></div>
+        </div>
+      </div>
+      <div class="phone">
+        <span class="cap">② 批次補 sheet（示意）</span>
+        <div>
+          <div class="row"><span>☑ 睡袋<span class="sub">參考範圍 700–1500 g</span></span><span class="w">900 g</span></div>
+          <div class="row"><span>☑ 護照／證件</span><span class="w">50 g</span></div>
+          <div class="row"><span>查無參考資料（1）</span><span class="w missing">—</span></div>
+        </div>
+        <span class="cap">資料來源：PackPlan 線上重量庫 · 更新於 9/20</span>
+        <span class="btn" style="align-self:flex-end">套用 2 項</span>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="login">
+    <h2 id="login"><span class="n">06</span>終端機登入 Firebase <span class="pill done">完成</span></h2>
+    <p>之後部署規則會用到。步驟備查：</p>
+<pre>npm install -g firebase-tools
+firebase login</pre>
+    <ol class="steps">
+      <li><span>問是否允許收集使用資料 → 輸入 <code>n</code> 按 Enter</span></li>
+      <li><span>自動開瀏覽器 → 選擁有 packplan 專案的 Google 帳號 → 允許</span></li>
+      <li><span>終端機出現 <code>Success! Logged in as …</code> 即完成</span></li>
+      <li><span>執行 <code>firebase projects:list</code>，看得到 <code>packplan-86e9d</code> 代表成功</span></li>
+    </ol>
+    <p>其他：填 CSV 重量（可分批）、下載服務帳戶金鑰（匯入用）。</p>
+  </section>
+
+  <section aria-labelledby="risks">
+    <h2 id="risks"><span class="n">07</span>注意事項</h2>
+    <ul>
+      <li>免費額度：每讀一份文件算 1 次；以 500 筆計，每天約可支撐 100 位新使用者首次下載。量大時可改為整份資料放 1 份文件（1 次讀取）</li>
+      <li>型號只支援一層（型號不能再掛型號）</li>
+      <li>批次補不會自動選型號，避免帶錯</li>
+    </ul>
+  </section>
+
+  <footer>來源：repo 內 <span class="mono">WEIGHT_REFERENCE_PLAN.md</span></footer>
+</div>
