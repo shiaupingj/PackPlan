@@ -110,10 +110,12 @@ npm run import:apply   # 實際寫入
 - 規則:範本項目建立時 `unset`;編輯時改了重量 → `manual`;批次/單項帶入 → `online`
 - 舊資料相容:0 g → `unset`,其餘 → `manual`
 
-### 參考重量服務(待做)
+### 參考重量服務(已完成)
 
-- `WeightReferenceService` 介面 + Firestore 實作 + 測試用 fake(比照 `CloudBackupScope` 注入)
-- 本機快取 + 增量同步
+- **用 Firestore REST API,不裝 `cloud_firestore` 原生 SDK**:沿用既有 `http` 套件;免把 iOS 最低版本升到 15、免加 Android Google Services 外掛(避免影響 Drive 登入);規則允許未登入讀取,不需金鑰
+- `WeightReferenceSource`(介面)/ `FirestoreWeightReferenceSource`(`lib/services/weight_reference_source.dart`)
+- `WeightReferenceRepository`(`lib/data/weight_reference_repository.dart`):本機 JSON 快取 + 增量同步、`matchItem`、`variantsOf`
+- `WeightReferenceScope` 注入,`PackPlanApp(weightReferenceRepository:)` 可塞 fake
 - 比對:`catalogKey` 精確 → 名稱/別名正規化(去空白、轉小寫)精確比對
 
 ### UI 位置
@@ -136,7 +138,7 @@ npm run import:apply   # 實際寫入
 | CSV 支援品牌型號 | ✅ 完成 | `8dee016` |
 | App 第 1 步:資料模型 | ✅ 完成(76 測試綠) | `bc60036` |
 | 填寫 CSV 重量 + 首次匯入 | ⏳ 需本人操作 | |
-| App 第 2 步:串接 Firebase、快取、比對 | ⏳ 待做(需先 Firebase 登入) | |
+| App 第 2 步:串接 Firestore(REST)、快取、比對 | ✅ 完成(90 測試綠) | 見 git log |
 | App 第 3 步:UI ①〜⑤ | ⏳ 待做 | |
 | 真機測試(iOS / Android) | ⏳ 待做 | |
 
@@ -144,7 +146,7 @@ npm run import:apply   # 實際寫入
 
 ### 在終端機登入 Firebase(一次)
 
-App 端第 2 步的 `flutterfire configure` 需要全域的 `firebase` 指令,所以用全域安裝:
+✅ 已完成。之後部署規則(`firebase deploy --only firestore:rules`)會用到。步驟備查:
 
 ```bash
 npm install -g firebase-tools

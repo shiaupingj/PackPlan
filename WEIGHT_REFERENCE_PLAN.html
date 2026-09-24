@@ -180,8 +180,8 @@
 
   <section aria-labelledby="progress">
     <h2 id="progress"><span class="n">00</span>進度總覽</h2>
-    <div class="bar-label"><span>9 項中完成 5 項</span><span class="num">56%</span></div>
-    <div class="bar" role="img" aria-label="完成 5/9"><span></span></div>
+    <div class="bar-label"><span>9 項中完成 6 項</span><span class="num">67%</span></div>
+    <div class="bar" role="img" aria-label="完成 6/9"><span style="width:66.7%"></span></div>
     <div class="progress">
       <div class="progress-row"><span>Firestore 資料庫建立（Standard，asia-east1）</span><span class="pill done">完成</span></div>
       <div class="progress-row"><span>權限規則上線 + 驗證腳本</span><span class="pill done">完成</span><span class="commit mono">5ca092f · fafd02f</span></div>
@@ -189,7 +189,7 @@
       <div class="progress-row"><span>CSV 支援品牌型號</span><span class="pill done">完成</span><span class="commit mono">8dee016</span></div>
       <div class="progress-row"><span>App 第 1 步：資料模型（76 測試綠）</span><span class="pill done">完成</span><span class="commit mono">bc60036</span></div>
       <div class="progress-row"><span>填寫 CSV 重量 + 首次匯入</span><span class="pill you">需本人操作</span></div>
-      <div class="progress-row"><span>App 第 2 步：串接 Firebase、快取、比對</span><span class="pill todo">待做</span><span class="commit">需先在終端機登入 Firebase</span></div>
+      <div class="progress-row"><span>App 第 2 步：串接 Firestore（REST）、快取、比對（90 測試綠）</span><span class="pill done">完成</span></div>
       <div class="progress-row"><span>App 第 3 步：UI ①〜⑤</span><span class="pill todo">待做</span></div>
       <div class="progress-row"><span>真機測試（iOS / Android）</span><span class="pill todo">待做</span></div>
     </div>
@@ -306,10 +306,10 @@ npm run import:apply   <span class="c"># 實際寫入</span></pre>
       <li>舊資料相容：0 g → <code>unset</code>，其餘 → <code>manual</code></li>
     </ul>
 
-    <h3>參考重量服務 <span class="pill todo">待做</span></h3>
+    <h3>參考重量服務 <span class="pill done">完成</span></h3>
     <ul>
-      <li><code>WeightReferenceService</code> 介面 + Firestore 實作 + 測試用 fake（比照 <code>CloudBackupScope</code> 注入）</li>
-      <li>本機快取 + 增量同步</li>
+      <li><strong>用 Firestore REST API，不裝原生 SDK</strong>：沿用既有 <code>http</code> 套件，免把 iOS 最低版本升到 15、免加 Android Google Services 外掛（避免影響 Drive 登入）</li>
+      <li><code>FirestoreWeightReferenceSource</code> + <code>WeightReferenceRepository</code>（本機快取 + 增量同步）+ <code>WeightReferenceScope</code> 注入</li>
       <li>比對：<code>catalogKey</code> 精確 → 名稱／別名正規化（去空白、轉小寫）精確比對</li>
     </ul>
 
@@ -351,8 +351,8 @@ npm run import:apply   <span class="c"># 實際寫入</span></pre>
   </section>
 
   <section aria-labelledby="login">
-    <h2 id="login"><span class="n">06</span>需本人操作：終端機登入 Firebase</h2>
-    <p>App 第 2 步的 <code>flutterfire configure</code> 需要全域的 <code>firebase</code> 指令，所以用全域安裝：</p>
+    <h2 id="login"><span class="n">06</span>終端機登入 Firebase <span class="pill done">完成</span></h2>
+    <p>之後部署規則會用到。步驟備查：</p>
 <pre>npm install -g firebase-tools
 firebase login</pre>
     <ol class="steps">
