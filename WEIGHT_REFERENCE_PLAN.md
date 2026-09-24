@@ -118,7 +118,10 @@ npm run import:apply   # 實際寫入
 - `WeightReferenceScope` 注入,`PackPlanApp(weightReferenceRepository:)` 可塞 fake
 - 比對:`catalogKey` 精確 → 名稱/別名正規化(去空白、轉小寫)精確比對
 
-### UI 位置
+### UI 位置(已完成)
+
+同步時機:開 App 時背景同步一次(`main.dart`)、按「帶入參考重量」時再同步;離線沿用快取。
+
 
 | 位置 | 內容 |
 |---|---|
@@ -139,7 +142,7 @@ npm run import:apply   # 實際寫入
 | App 第 1 步:資料模型 | ✅ 完成(76 測試綠) | `bc60036` |
 | 填寫 CSV 重量 + 首次匯入 | ⏳ 需本人操作 | |
 | App 第 2 步:串接 Firestore(REST)、快取、比對 | ✅ 完成(90 測試綠) | 見 git log |
-| App 第 3 步:UI ①〜⑤ | ⏳ 待做 | |
+| App 第 3 步:UI ①〜⑤ + 開 App 背景同步 | ✅ 完成(96 測試綠、模擬器實測) | 見 git log |
 | 真機測試(iOS / Android) | ⏳ 待做 | |
 
 ## 8. 需本人操作

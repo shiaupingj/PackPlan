@@ -180,8 +180,8 @@
 
   <section aria-labelledby="progress">
     <h2 id="progress"><span class="n">00</span>進度總覽</h2>
-    <div class="bar-label"><span>9 項中完成 6 項</span><span class="num">67%</span></div>
-    <div class="bar" role="img" aria-label="完成 6/9"><span style="width:66.7%"></span></div>
+    <div class="bar-label"><span>9 項中完成 7 項</span><span class="num">78%</span></div>
+    <div class="bar" role="img" aria-label="完成 7/9"><span style="width:77.8%"></span></div>
     <div class="progress">
       <div class="progress-row"><span>Firestore 資料庫建立（Standard，asia-east1）</span><span class="pill done">完成</span></div>
       <div class="progress-row"><span>權限規則上線 + 驗證腳本</span><span class="pill done">完成</span><span class="commit mono">5ca092f · fafd02f</span></div>
@@ -190,7 +190,7 @@
       <div class="progress-row"><span>App 第 1 步：資料模型（76 測試綠）</span><span class="pill done">完成</span><span class="commit mono">bc60036</span></div>
       <div class="progress-row"><span>填寫 CSV 重量 + 首次匯入</span><span class="pill you">需本人操作</span></div>
       <div class="progress-row"><span>App 第 2 步：串接 Firestore（REST）、快取、比對（90 測試綠）</span><span class="pill done">完成</span></div>
-      <div class="progress-row"><span>App 第 3 步：UI ①〜⑤</span><span class="pill todo">待做</span></div>
+      <div class="progress-row"><span>App 第 3 步：UI ①〜⑤ + 開 App 背景同步（96 測試綠、模擬器實測）</span><span class="pill done">完成</span></div>
       <div class="progress-row"><span>真機測試（iOS / Android）</span><span class="pill todo">待做</span></div>
     </div>
   </section>
@@ -313,7 +313,8 @@ npm run import:apply   <span class="c"># 實際寫入</span></pre>
       <li>比對：<code>catalogKey</code> 精確 → 名稱／別名正規化（去空白、轉小寫）精確比對</li>
     </ul>
 
-    <h3>UI 位置 <span class="pill todo">待做</span></h3>
+    <h3>UI 位置 <span class="pill done">完成</span></h3>
+    <p>同步時機：開 App 時背景同步一次、按「帶入參考重量」時再同步；離線沿用快取。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>位置</th><th>內容</th></tr></thead>

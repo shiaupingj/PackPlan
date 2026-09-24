@@ -141,11 +141,11 @@ void main() {
     expect(find.text('超輕量化打包'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('雨衣 0${nbsp}g'),
+      find.text('雨衣 —${nbsp}g'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('雨衣 0${nbsp}g'), findsOneWidget);
+    expect(find.text('雨衣 —${nbsp}g'), findsOneWidget);
     expect(find.textContaining('證件'), findsNothing);
   });
 

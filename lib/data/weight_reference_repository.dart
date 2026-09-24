@@ -74,6 +74,7 @@ class WeightReferenceRepository extends ChangeNotifier {
   DateTime? get version => _version;
   DateTime? get syncedAt => _syncedAt;
   bool get isSyncing => _syncing;
+  bool get isLoaded => _loaded;
   bool get hasData => _entries.values.any((entry) => entry.isActive);
 
   Future<void> load() => _loading ??= _loadFromCache();
@@ -134,16 +135,28 @@ class WeightReferenceRepository extends ChangeNotifier {
     }
   }
 
+  /// 背景同步用:失敗只記錄,不丟例外(離線時沿用快取)。
+  Future<void> syncQuietly() async {
+    try {
+      await sync();
+    } on Object catch (error) {
+      debugPrint('Weight reference sync skipped: $error');
+    }
+  }
+
   GearWeight? lookup(String key) {
     final entry = _entries[key];
     return entry != null && entry.isActive ? entry : null;
   }
 
   /// 先用範本 key,再用正規化後的名稱/別名比對;都沒有回傳 null。
-  GearWeight? matchItem(PackItem item) {
+  GearWeight? matchItem(PackItem item) =>
+      match(catalogKey: item.catalogKey, name: item.name);
+
+  GearWeight? match({String? catalogKey, required String name}) {
     assert(_loaded, 'Call load() before matching items.');
-    final byKey = item.catalogKey == null ? null : lookup(item.catalogKey!);
-    return byKey ?? _byName[normalizeName(item.name)];
+    final byKey = catalogKey == null ? null : lookup(catalogKey);
+    return byKey ?? _byName[normalizeName(name)];
   }
 
   /// 掛在 [key] 底下的品牌型號,依品牌、名稱排序。

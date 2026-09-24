@@ -25,7 +25,8 @@ class PackPlanApp extends StatefulWidget {
   /// 測試可注入 fake。
   final CloudBackupService? cloudBackupService;
 
-  /// 線上參考重量;省略時用 Firestore REST + 本機檔案快取。測試可注入 fake 來源。
+  /// 線上參考重量;正式環境由 main.dart 注入(Firestore + 檔案快取)。
+  /// 省略時為沒有資料的離線版本,讓測試不會連網。
   final WeightReferenceRepository? weightReferenceRepository;
 
   @override
@@ -40,8 +41,8 @@ class _PackPlanAppState extends State<PackPlanApp> {
   late final WeightReferenceRepository _weightReferenceRepository =
       widget.weightReferenceRepository ??
       WeightReferenceRepository(
-        source: FirestoreWeightReferenceSource(),
-        cacheStore: FileWeightReferenceCacheStore(),
+        source: const EmptyWeightReferenceSource(),
+        cacheStore: InMemoryWeightReferenceCacheStore(),
       );
 
   @override

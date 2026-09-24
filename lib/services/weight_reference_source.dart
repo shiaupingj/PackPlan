@@ -24,6 +24,17 @@ abstract interface class WeightReferenceSource {
   Future<List<GearWeight>> fetchUpdatedSince(DateTime? since);
 }
 
+/// 沒有線上資料的來源:測試與未注入時的預設,避免意外連網。
+class EmptyWeightReferenceSource implements WeightReferenceSource {
+  const EmptyWeightReferenceSource();
+
+  @override
+  Future<DateTime?> fetchVersion() async => null;
+
+  @override
+  Future<List<GearWeight>> fetchUpdatedSince(DateTime? since) async => [];
+}
+
 /// 以 Firestore REST API 讀取(規則允許未登入讀取,不需金鑰或原生 SDK)。
 class FirestoreWeightReferenceSource implements WeightReferenceSource {
   FirestoreWeightReferenceSource({
