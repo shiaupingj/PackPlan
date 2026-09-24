@@ -49,7 +49,8 @@ console.log(`Firestore 現有:${existing.size} 筆`);
 console.log(`→ 新增/更新 ${upserts.length} 筆,下架 ${deactivations.length} 筆`);
 for (const [key, doc] of upserts) {
   const range = doc.weightMin ? `(${doc.weightMin}–${doc.weightMax})` : '';
-  console.log(`  ${existing.has(key) ? '~' : '+'} ${key} ${doc.nameZh} ${doc.weightGram}g${range}`);
+  const parent = doc.parentKey ? ` ← ${doc.parentKey}` : '';
+  console.log(`  ${existing.has(key) ? '~' : '+'} ${key} ${doc.nameZh} ${doc.weightGram}g${range}${parent}`);
 }
 for (const key of deactivations) console.log(`  - ${key}`);
 

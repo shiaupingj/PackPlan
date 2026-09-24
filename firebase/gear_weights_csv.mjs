@@ -1,7 +1,9 @@
 // 把 gear_weights.csv 解析成 Firestore 文件。純函式,不碰網路,方便測試。
 //
-// 欄位:item_key,name_zh,aliases,category_id,weight_gram,weight_min,weight_max,note,is_active
+// 欄位:item_key,name_zh,parent_key,brand,aliases,category_id,weight_gram,weight_min,weight_max,note,is_active
 // - item_key:文件 ID,對應 App 範本 key(小寫英數與 -)
+// - parent_key / brand:品牌型號列。parent_key 填所屬的通用項目 key(如 large-backpack),
+//   name_zh 填完整型號名(如 Osprey Exos 58),App 選用時會把項目名稱改成它。只支援一層。
 // - aliases:以 | 分隔的別名,供自訂項目名稱比對
 // - weight_gram 留空但有 min/max → 自動取中間值;三者皆空 → 視為待填,略過不上傳
 // - is_active 留空視為 true;填 false/0/no 表示下架
@@ -9,6 +11,8 @@
 export const COLUMNS = [
   'item_key',
   'name_zh',
+  'parent_key',
+  'brand',
   'aliases',
   'category_id',
   'weight_gram',
@@ -95,6 +99,16 @@ export function buildDocs(text) {
   }
   const col = Object.fromEntries(COLUMNS.map((c) => [c, header.indexOf(c)]));
 
+  // 先掃一遍所有 key → parent_key,驗證型號列時要查父項目是否存在、是否也是型號
+  const parentOf = new Map(
+    rows
+      .slice(1)
+      .map((cells) => [
+        (cells[col.item_key] ?? '').trim(),
+        (cells[col.parent_key] ?? '').trim(),
+      ]),
+  );
+
   rows.slice(1).forEach((cells, index) => {
     const line = index + 2;
     const get = (name) => (cells[col[name]] ?? '').trim();
@@ -112,6 +126,18 @@ export function buildDocs(text) {
     if (nameZh === '') {
       errors.push(`第 ${line} 行:${itemKey} 缺 name_zh`);
       return;
+    }
+
+    const parentKey = get('parent_key') || null;
+    if (parentKey !== null) {
+      if (parentKey === itemKey || !parentOf.has(parentKey)) {
+        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」不存在於 CSV`);
+        return;
+      }
+      if (parentOf.get(parentKey)) {
+        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」本身也是型號,只支援一層`);
+        return;
+      }
     }
 
     const lineErrors = [];
@@ -149,6 +175,8 @@ export function buildDocs(text) {
 
     docs.set(itemKey, {
       nameZh,
+      parentKey,
+      brand: get('brand') || null,
       aliases: [...new Set(aliases)],
       categoryId: get('category_id') || null,
       weightGram,
@@ -164,6 +192,8 @@ export function buildDocs(text) {
 
 const COMPARED_FIELDS = [
   'nameZh',
+  'parentKey',
+  'brand',
   'categoryId',
   'weightGram',
   'weightMin',
