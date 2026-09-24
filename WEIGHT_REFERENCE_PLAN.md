@@ -78,7 +78,7 @@
 - 標題列 11 個欄位都要在(順序可調)
 - 重量只能是**正整數(公克)**,不能寫 `1.2kg`、`1,200`、`0`
 - 任一列錯誤 → **整份不寫入**
-- Excel 存檔選「CSV UTF-8」
+- 用 xlsx 就不用另存 CSV;若改用 CSV,Excel 存檔選「CSV UTF-8」
 
 品牌型號範例:
 
@@ -88,6 +88,8 @@
 | osprey-exos-58 | Osprey Exos 58 | large-backpack | Osprey | Exos 58 | 1200 |
 
 ## 5. 資料維護流程
+
+資料表在 `~/dev_data/PackPlan/gear_weights.xlsx`(黃色欄位要填;「說明」分頁有規則與範例),直接存 .xlsx 即可,匯入腳本讀 `gear_weights` 分頁(也仍支援 .csv)。
 
 ```bash
 cd firebase

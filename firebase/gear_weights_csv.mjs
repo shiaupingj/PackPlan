@@ -1,4 +1,4 @@
-// 把 gear_weights.csv 解析成 Firestore 文件。純函式,不碰網路,方便測試。
+// 把 gear_weights 表格(CSV 或 xlsx 讀出的列)解析成 Firestore 文件。純函式,不碰網路,方便測試。
 //
 // 欄位:item_key,name_zh,parent_key,brand,aliases,category_id,weight_gram,weight_min,weight_max,note,is_active
 // - item_key:文件 ID,對應 App 範本 key(小寫英數與 -)
@@ -81,15 +81,23 @@ function parseActive(raw) {
   return !['false', '0', 'no', 'n'].includes(value);
 }
 
-// 回傳 { docs: Map<itemKey, doc>, pending: string[], errors: string[] }
+// CSV 文字 → { docs: Map<itemKey, doc>, pending: string[], errors: string[] }
 export function buildDocs(text) {
-  const rows = parseCsv(text);
+  return buildDocsFromRows(parseCsv(text));
+}
+
+// rows:第一列為欄位名稱的字串二維陣列(CSV 或 xlsx 皆可)
+export function buildDocsFromRows(rawRows) {
+  // 空白列不先濾掉,讓錯誤訊息的「第 N 行」對得上 Excel 的列號
+  const rows = rawRows.map((row) =>
+    row.map((cell) => (cell == null ? '' : String(cell))),
+  );
   const errors = [];
   const pending = [];
   const docs = new Map();
 
   if (rows.length === 0) {
-    return { docs, pending, errors: ['CSV 是空的'] };
+    return { docs, pending, errors: ['表格是空的'] };
   }
 
   const header = rows[0].map((h) => h.trim());
@@ -112,6 +120,7 @@ export function buildDocs(text) {
   rows.slice(1).forEach((cells, index) => {
     const line = index + 2;
     const get = (name) => (cells[col[name]] ?? '').trim();
+    if (cells.every((cell) => cell.trim() === '')) return;
 
     const itemKey = get('item_key');
     const nameZh = get('name_zh');
@@ -131,7 +140,7 @@ export function buildDocs(text) {
     const parentKey = get('parent_key') || null;
     if (parentKey !== null) {
       if (parentKey === itemKey || !parentOf.has(parentKey)) {
-        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」不存在於 CSV`);
+        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」不存在於表格`);
         return;
       }
       if (parentOf.get(parentKey)) {
