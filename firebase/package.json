@@ -1,0 +1,18 @@
+{
+  "name": "packplan-firebase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "firebase login",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "import:dry": "node import_gear_weights.mjs gear_weights.csv",
+    "import:apply": "node import_gear_weights.mjs gear_weights.csv --apply",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.0.0"
+  }
+}
