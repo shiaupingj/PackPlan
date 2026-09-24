@@ -5,6 +5,7 @@
   "scripts": {
     "login": "firebase login",
     "deploy:rules": "firebase deploy --only firestore:rules",
+    "check:rules": "bash check_rules.sh",
     "import:dry": "node import_gear_weights.mjs gear_weights.csv",
     "import:apply": "node import_gear_weights.mjs gear_weights.csv --apply",
     "test": "node --test"
