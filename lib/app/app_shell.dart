@@ -174,10 +174,7 @@ class _FloatingNavBar extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

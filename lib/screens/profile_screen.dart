@@ -103,10 +103,7 @@ class ProfileScreen extends StatelessWidget {
                           value: ThemeMode.light,
                           label: Text('淺色'),
                         ),
-                        ButtonSegment(
-                          value: ThemeMode.dark,
-                          label: Text('深色'),
-                        ),
+                        ButtonSegment(value: ThemeMode.dark, label: Text('深色')),
                         ButtonSegment(
                           value: ThemeMode.system,
                           label: Text('跟隨系統'),
@@ -351,7 +348,9 @@ class _ProUpgradeCard extends StatelessWidget {
                   ),
                   child: Text(
                     '特別優惠',
-                    style: t.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    style: t.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],

@@ -84,7 +84,8 @@ class BackupCodec {
       );
       // 舊備份沒有 themeMode 欄位時，預設跟隨系統。
       final themeName = settingsJson['themeMode'];
-      final themeMode = ThemeMode.values
+      final themeMode =
+          ThemeMode.values
               .where((mode) => mode.name == themeName)
               .firstOrNull ??
           ThemeMode.system;
@@ -144,6 +145,8 @@ class BackupCodec {
             'weightClass': item.weightClass.name,
             'isContainer': item.isContainer,
             'containerItemId': item.containerItemId,
+            'weightSource': item.weightSource.name,
+            'catalogKey': item.catalogKey,
           },
         )
         .toList(),
@@ -233,12 +236,29 @@ class BackupCodec {
       throw BackupFormatException('無效的重量類型：$weightClassName');
     }
 
+    final catalogKey = json['catalogKey'];
+    if (catalogKey != null && catalogKey is! String) {
+      throw const BackupFormatException('裝備的範本識別碼格式無效');
+    }
+
+    final weightGram = _nonNegativeInteger(json['weightGram'], '裝備重量');
+    final weightSourceName = json['weightSource'];
+    // 舊版資料沒有 weightSource:0g 視為尚未填,其餘視為使用者自填。
+    final weightSource = weightSourceName == null
+        ? (weightGram == 0 ? WeightSource.unset : WeightSource.manual)
+        : WeightSource.values
+              .where((value) => value.name == weightSourceName)
+              .firstOrNull;
+    if (weightSource == null) {
+      throw BackupFormatException('無效的重量來源：$weightSourceName');
+    }
+
     return PackItem(
       id: _nonEmptyString(json['id'], '裝備識別碼'),
       categoryId: _nonEmptyString(json['categoryId'], '分類識別碼'),
       categoryName: _nonEmptyString(json['categoryName'], '分類名稱'),
       name: _nonEmptyString(json['name'], '裝備名稱'),
-      weightGram: _nonNegativeInteger(json['weightGram'], '裝備重量'),
+      weightGram: weightGram,
       quantity: _positiveInteger(json['quantity'], '裝備數量'),
       checked: _boolean(json['checked'], '打包狀態'),
       necessity: necessity,
@@ -246,6 +266,8 @@ class BackupCodec {
       weightClass: weightClass,
       isContainer: _boolean(json['isContainer'], '容器狀態'),
       containerItemId: containerItemId as String?,
+      weightSource: weightSource,
+      catalogKey: catalogKey as String?,
     );
   }
 

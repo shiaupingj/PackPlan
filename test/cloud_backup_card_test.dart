@@ -28,8 +28,7 @@ class FakeCloudBackupService implements CloudBackupService {
   Future<void> disconnect() async => available = false;
 
   @override
-  Future<String?> accountLabel() async =>
-      available ? 'test@example.com' : null;
+  Future<String?> accountLabel() async => available ? 'test@example.com' : null;
 
   @override
   Future<CloudBackupEntry> upload(Uint8List bytes) async {

@@ -10,9 +10,7 @@ void main() {
   });
 
   test('fileNameFor 對個位數月日時分秒補零', () {
-    final name = CloudBackupNaming.fileNameFor(
-      DateTime(2026, 1, 5, 3, 7, 9),
-    );
+    final name = CloudBackupNaming.fileNameFor(DateTime(2026, 1, 5, 3, 7, 9));
     expect(name, 'packplan-backup-20260105-030709.json');
   });
 

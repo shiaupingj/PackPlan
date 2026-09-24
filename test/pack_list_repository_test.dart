@@ -47,6 +47,33 @@ void main() {
     );
   });
 
+  test('template items start with unset weight and keep catalogKey', () {
+    final repository = InMemoryPackListRepository();
+    const template = PackTemplate(
+      id: 'basic-hike',
+      name: '基本登山',
+      tripType: TripType.hiking,
+      proOnly: false,
+      description: '測試用',
+    );
+
+    final list = repository.createFromDraft(
+      CreatePackListDraft(
+        template: template,
+        days: 2,
+        weatherConditions: {WeatherCondition.sunny},
+      ),
+    );
+    final sleepingBag = list.items.singleWhere(
+      (item) => item.catalogKey == 'sleeping-bag',
+    );
+
+    expect(sleepingBag.weightGram, 0);
+    expect(sleepingBag.weightSource, WeightSource.unset);
+    expect(sleepingBag.isWeightMissing, isTrue);
+    expect(sleepingBag.id, isNot('sleeping-bag'));
+  });
+
   test('settings change default weight limit for new outdoor lists', () {
     final repository = InMemoryPackListRepository();
     repository.updateSettings(const UserSettings(defaultWeightLimitGram: 9000));

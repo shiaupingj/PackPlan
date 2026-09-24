@@ -20,8 +20,7 @@ class CreatePackListDraft {
   final Set<String>? selectedItemKeys;
 }
 
-String packItemSelectionKey(PackItem item) =>
-    '${item.categoryId}:${item.name}';
+String packItemSelectionKey(PackItem item) => '${item.categoryId}:${item.name}';
 
 abstract interface class PackListRepository extends Listenable {
   List<PackList> get lists;
@@ -530,10 +529,7 @@ class InMemoryPackListRepository extends ChangeNotifier
     return items;
   }
 
-  bool _hasEquivalentWeatherItem(
-    List<PackItem> items,
-    PackItem weatherItem,
-  ) {
+  bool _hasEquivalentWeatherItem(List<PackItem> items, PackItem weatherItem) {
     final aliases = switch (weatherItem.id) {
       'rain-cover' => const {'背包套', '防雨衣物'},
       'wind-shell' => const {'防風外套'},

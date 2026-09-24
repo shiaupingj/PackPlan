@@ -220,10 +220,10 @@ abstract final class SeedData {
     }
     if (template.id == 'advanced-hike') {
       // 進階登山 = 基礎登山全部項目（繼承）+ 進階/技術裝備。
-      return _buildFromGroups(
-        [..._basicHikeGroups, _advancedHikeExtras],
-        defaultContainerId: 'large-backpack',
-      );
+      return _buildFromGroups([
+        ..._basicHikeGroups,
+        _advancedHikeExtras,
+      ], defaultContainerId: 'large-backpack');
     }
 
     final seededLists = lists();
@@ -258,6 +258,8 @@ abstract final class SeedData {
             weightClass: spec.weightClass,
             isContainer: spec.isContainer,
             containerItemId: spec.isContainer ? null : defaultContainerId,
+            weightSource: WeightSource.unset,
+            catalogKey: spec.id,
           ),
         );
         sortOrder += 1;

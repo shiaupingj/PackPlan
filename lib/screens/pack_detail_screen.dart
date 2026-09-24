@@ -1688,6 +1688,12 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       return;
     }
 
+    final existing = widget.item;
+    // 重量沒動就保留原來源(例如仍是線上參考值或尚未填);有改就算使用者自填。
+    final weightSource = existing != null && existing.weightGram == weight
+        ? existing.weightSource
+        : WeightSource.manual;
+
     final nowId = DateTime.now().microsecondsSinceEpoch;
     final item =
         (widget.item ??
@@ -1720,6 +1726,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               containerItemId: _isContainer || _weightClass == WeightClass.worn
                   ? null
                   : _containerItemId,
+              weightSource: weightSource,
             );
 
     Navigator.of(context).pop(_ItemEditorResult.save(item));

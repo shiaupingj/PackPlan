@@ -19,18 +19,15 @@ void main() {
 
   test('未連結帳號時對 Drive 操作丟出可顯示的 CloudBackupException', () async {
     final service = GoogleDriveBackupService();
-    await expectLater(
-      service.list(),
-      throwsA(isA<CloudBackupException>()),
-    );
+    await expectLater(service.list(), throwsA(isA<CloudBackupException>()));
   });
 
   tearDown(() {
     // 清掉任何被安裝的假 method channel handler（保險）。
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
-      const MethodChannel('plugins.flutter.io/google_sign_in'),
-      null,
-    );
+          const MethodChannel('plugins.flutter.io/google_sign_in'),
+          null,
+        );
   });
 }
