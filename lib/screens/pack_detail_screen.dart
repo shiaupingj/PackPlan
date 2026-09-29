@@ -1953,9 +1953,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final reference = _currentReference;
     if (reference == null) return null;
     final unit = AppScope.of(context).settings.weightUnit;
-    final range = reference.hasRange
-        ? '（範圍 ${WeightReferenceLabels.range(reference, unit)}）'
-        : '';
+    final rangeText = WeightReferenceLabels.range(reference, unit);
+    final range = rangeText.isNotEmpty ? '（範圍 $rangeText）' : '';
     return '☁ 線上參考 '
         '${WeightFormatters.gram(reference.weightGram, unit: unit)}$range';
   }

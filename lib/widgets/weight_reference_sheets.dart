@@ -12,16 +12,29 @@ import '../theme/app_palette.dart';
 
 /// 參考重量的顯示文字(帶入值與範圍)。
 abstract final class WeightReferenceLabels {
+  /// 「700 g–1.5 kg」;沒有範圍,或兩端換算後顯示相同(如 1850/1890 g 都是 1.9 kg)時回傳空字串。
   static String range(GearWeight weight, WeightUnit unit) {
     if (!weight.hasRange) return '';
-    return '${WeightFormatters.gram(weight.weightMin!, unit: unit)}–'
-        '${WeightFormatters.gram(weight.weightMax!, unit: unit)}';
+    final min = WeightFormatters.gram(weight.weightMin!, unit: unit);
+    final max = WeightFormatters.gram(weight.weightMax!, unit: unit);
+    return min == max ? '' : '$min–$max';
   }
 
   /// 「線上參考值 · 範圍 700 g–1.5 kg」;查不到資料時只顯示「線上參考值」。
   static String tooltip(GearWeight? weight, WeightUnit unit) {
-    if (weight == null || !weight.hasRange) return '線上參考值';
-    return '線上參考值 · 範圍 ${range(weight, unit)}';
+    final text = weight == null ? '' : range(weight, unit);
+    return text.isEmpty ? '線上參考值' : '線上參考值 · 範圍 $text';
+  }
+
+  /// 選單中的型號名稱:已有品牌分組標題或副標,去掉開頭重複的品牌名
+  /// (「ISUKA Air 1000EX」→「Air 1000EX」)。選用後項目名稱仍用完整名稱。
+  static String modelName(GearWeight weight) {
+    final brand = weight.brand?.trim();
+    final name = weight.nameZh;
+    if (brand == null || brand.isEmpty) return name;
+    if (!name.toLowerCase().startsWith(brand.toLowerCase())) return name;
+    final rest = name.substring(brand.length).trim();
+    return rest.isEmpty ? name : rest;
   }
 
   static String source(WeightReferenceRepository references) {
@@ -171,12 +184,16 @@ class _WeightFillSheetState extends State<_WeightFillSheet> {
                             controlAffinity: ListTileControlAffinity.leading,
                             contentPadding: EdgeInsets.zero,
                             title: Text(item.name),
-                            subtitle: weight.hasRange
-                                ? Text(
+                            subtitle:
+                                WeightReferenceLabels.range(
+                                  weight,
+                                  widget.unit,
+                                ).isEmpty
+                                ? null
+                                : Text(
                                     '參考範圍 '
                                     '${WeightReferenceLabels.range(weight, widget.unit)}',
-                                  )
-                                : null,
+                                  ),
                             secondary: Text(
                               WeightFormatters.gram(
                                 weight.weightGram,
@@ -317,8 +334,9 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
       if (weight.parentKey case final parentKey?)
         if (widget.references.lookup(parentKey) case final parent?)
           '屬於「${parent.nameZh}」',
-      if (weight.hasRange)
-        '範圍 ${WeightReferenceLabels.range(weight, widget.unit)}',
+      if (WeightReferenceLabels.range(weight, widget.unit) case final range
+          when range.isNotEmpty)
+        '範圍 $range',
     ];
     return parts.isEmpty ? null : parts.join(' · ');
   }
@@ -336,14 +354,15 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       title: Text(
-        title ?? weight.nameZh,
+        title ?? WeightReferenceLabels.modelName(weight),
         style: selected ? const TextStyle(fontWeight: FontWeight.w500) : null,
       ),
       subtitle: subtitle != null
           ? Text(subtitle)
-          : weight.hasRange
-          ? Text('參考範圍 ${WeightReferenceLabels.range(weight, widget.unit)}')
-          : null,
+          : switch (WeightReferenceLabels.range(weight, widget.unit)) {
+              '' => null,
+              final range => Text('參考範圍 $range'),
+            },
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
