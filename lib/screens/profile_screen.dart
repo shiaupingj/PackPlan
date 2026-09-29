@@ -13,6 +13,7 @@ import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
+import '../widgets/app_dialog_title.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -279,7 +280,8 @@ class ProfileScreen extends StatelessWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('匯入並取代目前資料？'),
+          titlePadding: AppDialogTitle.padding,
+          title: const AppDialogTitle('匯入並取代目前資料？'),
           content: Text(
             '將匯入 ${backup.lists.length} 份清單，並取代目前所有清單與偏好設定。'
             '此動作無法復原，建議先匯出目前資料。',
@@ -621,7 +623,8 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(title),
+        titlePadding: AppDialogTitle.padding,
+        title: AppDialogTitle(title),
         content: Text(message),
         actions: [
           TextButton(

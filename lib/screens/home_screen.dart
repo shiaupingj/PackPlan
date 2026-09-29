@@ -7,6 +7,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/pack_list_card.dart';
 import 'create_pack_flow_screen.dart';
 import 'pack_detail_screen.dart';
+import '../widgets/app_dialog_title.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -168,7 +169,8 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('重新命名清單'),
+          titlePadding: AppDialogTitle.padding,
+          title: const AppDialogTitle('重新命名清單'),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(labelText: '清單名稱'),
@@ -199,7 +201,8 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('刪除清單？'),
+          titlePadding: AppDialogTitle.padding,
+          title: const AppDialogTitle('刪除清單？'),
           content: const Text('刪除後目前版本無法復原。'),
           actions: [
             TextButton(

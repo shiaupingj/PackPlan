@@ -5,6 +5,7 @@ import '../data/weight_reference_repository.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
+import '../widgets/app_dialog_title.dart';
 
 typedef RepositoryInitializer = Future<PackListRepository> Function();
 typedef LocalDataResetter = Future<void> Function();
@@ -47,7 +48,8 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
         await showDialog<bool>(
           context: hostContext,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('重建本機資料？'),
+            titlePadding: AppDialogTitle.padding,
+            title: const AppDialogTitle('重建本機資料？'),
             content: const Text(
               '這會刪除目前裝置中無法讀取的資料，並重新建立範例清單。'
               '如果你有 PackPlan 備份，可在重新進入 App 後從「設定」匯入。',

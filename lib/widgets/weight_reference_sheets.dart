@@ -244,12 +244,14 @@ class _WeightFillSheetState extends State<_WeightFillSheet> {
 }
 
 /// 單項帶入:列出通用值與品牌型號,回傳選中的一筆(取消回傳 null)。
+/// [selectedKey] 是項目目前採用的參考值,會打勾並以底色標示。
 Future<GearWeight?> showWeightReferencePicker(
   BuildContext context, {
   required GearWeight? generic,
   required List<GearWeight> variants,
   required WeightReferenceRepository references,
   required WeightUnit unit,
+  String? selectedKey,
 }) {
   return showModalBottomSheet<GearWeight>(
     context: context,
@@ -262,19 +264,52 @@ Future<GearWeight?> showWeightReferencePicker(
         byBrand.putIfAbsent(variant.brand ?? '其他', () => []).add(variant);
       }
 
-      Widget tile(GearWeight weight, {String? title}) => ListTile(
-        key: ValueKey('weight-reference-${weight.key}'),
-        contentPadding: EdgeInsets.zero,
-        title: Text(title ?? weight.nameZh),
-        subtitle: weight.hasRange
-            ? Text('參考範圍 ${WeightReferenceLabels.range(weight, unit)}')
-            : null,
-        trailing: Text(
-          WeightFormatters.gram(weight.weightGram, unit: unit),
-          style: t.bodyMedium?.copyWith(color: AppColors.primary),
-        ),
-        onTap: () => Navigator.of(sheetContext).pop(weight),
+      Widget inset(Widget child) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        child: child,
       );
+
+      Widget tile(GearWeight weight, {String? title}) {
+        final selected = weight.key == selectedKey;
+        return ListTile(
+          key: ValueKey('weight-reference-${weight.key}'),
+          selected: selected,
+          selectedColor: AppColors.primary,
+          selectedTileColor: AppColors.primary.withValues(alpha: 0.12),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(AppRadius.md)),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          title: Text(
+            title ?? weight.nameZh,
+            style: selected
+                ? const TextStyle(fontWeight: FontWeight.w500)
+                : null,
+          ),
+          subtitle: weight.hasRange
+              ? Text('參考範圍 ${WeightReferenceLabels.range(weight, unit)}')
+              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(
+                  Icons.check_circle,
+                  key: ValueKey('weight-reference-selected'),
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+              ],
+              Text(
+                WeightFormatters.gram(weight.weightGram, unit: unit),
+                style: t.bodyMedium?.copyWith(color: AppColors.primary),
+              ),
+            ],
+          ),
+          onTap: () => Navigator.of(sheetContext).pop(weight),
+        );
+      }
 
       return SafeArea(
         child: ConstrainedBox(
@@ -282,19 +317,20 @@ Future<GearWeight?> showWeightReferencePicker(
             maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
           ),
           child: Padding(
+            // 型號列有選取底色,左右只留 sm;標題等文字另補 sm,與列內文字對齊。
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
+              AppSpacing.sm,
               0,
-              AppSpacing.lg,
+              AppSpacing.sm,
               AppSpacing.lg,
             ),
             child: ListView(
               shrinkWrap: true,
               children: [
-                Text('帶入參考值', style: t.titleLarge),
+                inset(Text('帶入參考值', style: t.titleLarge)),
                 if (variants.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xs),
-                  Text('選品牌型號時，項目名稱會改成型號名。', style: t.bodySmall),
+                  inset(Text('選品牌型號時，項目名稱會改成型號名。', style: t.bodySmall)),
                 ],
                 if (generic != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -303,19 +339,23 @@ Future<GearWeight?> showWeightReferencePicker(
                 for (final MapEntry(key: brand, value: models)
                     in byBrand.entries) ...[
                   const SizedBox(height: AppSpacing.md),
-                  Text(
-                    brand,
-                    style: t.bodySmall?.copyWith(
-                      color: sheetContext.palette.textSecondary,
+                  inset(
+                    Text(
+                      brand,
+                      style: t.bodySmall?.copyWith(
+                        color: sheetContext.palette.textSecondary,
+                      ),
                     ),
                   ),
                   for (final model in models) tile(model),
                 ],
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  WeightReferenceLabels.source(references),
-                  style: t.bodySmall?.copyWith(
-                    color: sheetContext.palette.textTertiary,
+                inset(
+                  Text(
+                    WeightReferenceLabels.source(references),
+                    style: t.bodySmall?.copyWith(
+                      color: sheetContext.palette.textTertiary,
+                    ),
                   ),
                 ),
               ],

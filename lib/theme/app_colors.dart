@@ -16,6 +16,10 @@ abstract final class AppColors {
   static const Color primary = orange500;
   static const Color onPrimary = ink;
 
+  // ── Switch（Figma「switch-thumb」「switch-track-off」，深淺色模式相同）──
+  static const Color switchThumb = Color(0xFFFFFFFF);
+  static const Color switchTrackOff = Color(0xFFB5B5B5);
+
   // ── Ink / 中性色 ──────────────────────────────────────────
   static const Color ink = Color(0xFF050505);
   static const Color background = Color(0xFF000000);

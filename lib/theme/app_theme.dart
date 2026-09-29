@@ -37,11 +37,13 @@ abstract final class AppTheme {
       extensions: [p],
     );
 
+    final textTheme = AppTypography.textTheme(
+      primary: p.textPrimary,
+      secondary: p.textSecondary,
+    );
+
     return base.copyWith(
-      textTheme: AppTypography.textTheme(
-        primary: p.textPrimary,
-        secondary: p.textSecondary,
-      ),
+      textTheme: textTheme,
       dividerColor: p.border,
       cardTheme: CardThemeData(
         color: p.surface,
@@ -55,6 +57,7 @@ abstract final class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.titleLarge, // H2
         shape: RoundedRectangleBorder(
           side: BorderSide(color: p.border, width: 0.8),
           borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
@@ -126,11 +129,17 @@ abstract final class AppTheme {
           ),
         ),
       ),
+      // 對齊 Figma「Switch」元件：白色圓鈕、開關同尺寸，深淺色模式相同。
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStatePropertyAll(p.textPrimary),
+        thumbColor: const WidgetStatePropertyAll(AppColors.switchThumb),
+        // M3 關閉狀態沒有圖示時圓鈕會縮小（16）；給一個透明圖示讓它維持 24。
+        thumbIcon: const WidgetStatePropertyAll(
+          Icon(Icons.circle, color: Colors.transparent),
+        ),
         trackColor: WidgetStateProperty.resolveWith(
-          (s) =>
-              s.contains(WidgetState.selected) ? AppColors.primary : p.border,
+          (s) => s.contains(WidgetState.selected)
+              ? AppColors.primary
+              : AppColors.switchTrackOff,
         ),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
