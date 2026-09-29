@@ -62,6 +62,8 @@ void main() {
         'power-bank',
       ).copyWith(weightGram: 0, weightSource: WeightSource.unset),
       itemById('pack').copyWith(catalogKey: 'large-backpack'),
+      // 線上沒有通用項目,只有掛在底下的型號
+      itemById('water-bottle').copyWith(catalogKey: 'water-bottle'),
     ]);
     references = WeightReferenceRepository(
       source: _FakeSource([
@@ -73,6 +75,13 @@ void main() {
           1200,
           parentKey: 'large-backpack',
           brand: 'Osprey',
+        ),
+        _weight(
+          'nalgene-1l',
+          'Nalgene 寬口瓶 1L',
+          180,
+          parentKey: 'water-bottle',
+          brand: 'Nalgene',
         ),
       ]),
       cacheStore: InMemoryWeightReferenceCacheStore(),
@@ -198,6 +207,32 @@ void main() {
     expect(pack.weightGram, 1200);
     expect(pack.weightSource, WeightSource.online);
     expect(pack.catalogKey, 'osprey-exos-58');
+  });
+
+  testWidgets('通用項目沒有線上資料時,仍可用範本 key 選型號', (tester) async {
+    await openList(tester);
+
+    await scrollTo(
+      tester,
+      find.byKey(const ValueKey('checklist-tile-water-bottle')),
+    );
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('checklist-tile-water-bottle')),
+    );
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+
+    expect(find.textContaining('通用值'), findsNothing);
+    expect(find.text('Nalgene'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('weight-reference-nalgene-1l')));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Nalgene 寬口瓶 1L'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '180'), findsOneWidget);
   });
 
   testWidgets('帶入後又改重量,存成自填', (tester) async {

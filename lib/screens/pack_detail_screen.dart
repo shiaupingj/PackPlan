@@ -1889,11 +1889,10 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     setState(() => _lookingUpReference = false);
 
     // 比對到型號時,改列出它所屬的通用項目與同系列型號。
-    final match = references.match(
-      catalogKey: _appliedReference?.key ?? widget.item?.catalogKey,
-      name: name,
-    );
-    final parentKey = match?.parentKey ?? match?.key;
+    // 通用項目沒有線上資料(沒填重量不會上傳)時,仍用範本 key 找掛在底下的型號。
+    final catalogKey = _appliedReference?.key ?? widget.item?.catalogKey;
+    final match = references.match(catalogKey: catalogKey, name: name);
+    final parentKey = match?.parentKey ?? match?.key ?? catalogKey;
     final generic = parentKey == null ? null : references.lookup(parentKey);
     final variants = parentKey == null
         ? const <GearWeight>[]
