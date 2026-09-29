@@ -245,6 +245,8 @@ class _WeightFillSheetState extends State<_WeightFillSheet> {
 
 /// 單項帶入:列出通用值與品牌型號,回傳選中的一筆(取消回傳 null)。
 /// [selectedKey] 是項目目前採用的參考值,會打勾並以底色標示。
+/// 頂端搜尋框可用品牌、型號或名稱搜尋整個重量庫;[initialQuery] 有值時
+/// 直接以搜尋模式開啟(比對不到項目時使用)。
 Future<GearWeight?> showWeightReferencePicker(
   BuildContext context, {
   required GearWeight? generic,
@@ -252,117 +254,225 @@ Future<GearWeight?> showWeightReferencePicker(
   required WeightReferenceRepository references,
   required WeightUnit unit,
   String? selectedKey,
+  String? initialQuery,
 }) {
   return showModalBottomSheet<GearWeight>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (sheetContext) {
-      final t = Theme.of(sheetContext).textTheme;
-      final byBrand = <String, List<GearWeight>>{};
-      for (final variant in variants) {
-        byBrand.putIfAbsent(variant.brand ?? '其他', () => []).add(variant);
-      }
+    builder: (_) => _WeightReferencePicker(
+      generic: generic,
+      variants: variants,
+      references: references,
+      unit: unit,
+      selectedKey: selectedKey,
+      initialQuery: initialQuery ?? '',
+    ),
+  );
+}
 
-      Widget inset(Widget child) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        child: child,
-      );
+class _WeightReferencePicker extends StatefulWidget {
+  const _WeightReferencePicker({
+    required this.generic,
+    required this.variants,
+    required this.references,
+    required this.unit,
+    required this.selectedKey,
+    required this.initialQuery,
+  });
 
-      Widget tile(GearWeight weight, {String? title}) {
-        final selected = weight.key == selectedKey;
-        return ListTile(
-          key: ValueKey('weight-reference-${weight.key}'),
-          selected: selected,
-          selectedColor: AppColors.primary,
-          selectedTileColor: AppColors.primary.withValues(alpha: 0.12),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(AppRadius.md)),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          title: Text(
-            title ?? weight.nameZh,
-            style: selected
-                ? const TextStyle(fontWeight: FontWeight.w500)
-                : null,
-          ),
-          subtitle: weight.hasRange
-              ? Text('參考範圍 ${WeightReferenceLabels.range(weight, unit)}')
-              : null,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (selected) ...[
-                const Icon(
-                  Icons.check_circle,
-                  key: ValueKey('weight-reference-selected'),
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: AppSpacing.xs),
-              ],
-              Text(
-                WeightFormatters.gram(weight.weightGram, unit: unit),
-                style: t.bodyMedium?.copyWith(color: AppColors.primary),
-              ),
-            ],
-          ),
-          onTap: () => Navigator.of(sheetContext).pop(weight),
-        );
-      }
+  final GearWeight? generic;
+  final List<GearWeight> variants;
+  final WeightReferenceRepository references;
+  final WeightUnit unit;
+  final String? selectedKey;
+  final String initialQuery;
 
-      return SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
-          ),
-          child: Padding(
-            // 型號列有選取底色,左右只留 sm;標題等文字另補 sm,與列內文字對齊。
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.sm,
-              0,
-              AppSpacing.sm,
-              AppSpacing.lg,
+  @override
+  State<_WeightReferencePicker> createState() => _WeightReferencePickerState();
+}
+
+class _WeightReferencePickerState extends State<_WeightReferencePicker> {
+  late final TextEditingController _queryController = TextEditingController(
+    text: widget.initialQuery,
+  );
+
+  String get _query => _queryController.text.trim();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  Widget _inset(Widget child) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+    child: child,
+  );
+
+  /// 搜尋結果的副標:品牌、所屬通用項目、範圍。
+  String? _searchSubtitle(GearWeight weight) {
+    final parts = [
+      if (weight.brand case final brand?) brand,
+      if (weight.parentKey case final parentKey?)
+        if (widget.references.lookup(parentKey) case final parent?)
+          '屬於「${parent.nameZh}」',
+      if (weight.hasRange)
+        '範圍 ${WeightReferenceLabels.range(weight, widget.unit)}',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  Widget _tile(GearWeight weight, {String? title, String? subtitle}) {
+    final t = Theme.of(context).textTheme;
+    final selected = weight.key == widget.selectedKey;
+    return ListTile(
+      key: ValueKey('weight-reference-${weight.key}'),
+      selected: selected,
+      selectedColor: AppColors.primary,
+      selectedTileColor: AppColors.primary.withValues(alpha: 0.12),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(AppRadius.md)),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+      title: Text(
+        title ?? weight.nameZh,
+        style: selected ? const TextStyle(fontWeight: FontWeight.w500) : null,
+      ),
+      subtitle: subtitle != null
+          ? Text(subtitle)
+          : weight.hasRange
+          ? Text('參考範圍 ${WeightReferenceLabels.range(weight, widget.unit)}')
+          : null,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (selected) ...[
+            const Icon(
+              Icons.check_circle,
+              key: ValueKey('weight-reference-selected'),
+              color: AppColors.primary,
+              size: 20,
             ),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                inset(Text('帶入參考值', style: t.titleLarge)),
-                if (variants.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  inset(Text('選品牌型號時，項目名稱會改成型號名。', style: t.bodySmall)),
-                ],
-                if (generic != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  tile(generic, title: '通用值（${generic.nameZh}）'),
-                ],
-                for (final MapEntry(key: brand, value: models)
-                    in byBrand.entries) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  inset(
-                    Text(
-                      brand,
-                      style: t.bodySmall?.copyWith(
-                        color: sheetContext.palette.textSecondary,
-                      ),
-                    ),
-                  ),
-                  for (final model in models) tile(model),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                inset(
-                  Text(
-                    WeightReferenceLabels.source(references),
-                    style: t.bodySmall?.copyWith(
-                      color: sheetContext.palette.textTertiary,
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          Text(
+            WeightFormatters.gram(weight.weightGram, unit: widget.unit),
+            style: t.bodyMedium?.copyWith(color: AppColors.primary),
+          ),
+        ],
+      ),
+      onTap: () => Navigator.of(context).pop(weight),
+    );
+  }
+
+  List<Widget> _browseChildren() {
+    final t = Theme.of(context).textTheme;
+    final byBrand = <String, List<GearWeight>>{};
+    for (final variant in widget.variants) {
+      byBrand.putIfAbsent(variant.brand ?? '其他', () => []).add(variant);
+    }
+    return [
+      if (widget.generic case final generic?) ...[
+        const SizedBox(height: AppSpacing.sm),
+        _tile(generic, title: '通用值（${generic.nameZh}）'),
+      ],
+      for (final MapEntry(key: brand, value: models) in byBrand.entries) ...[
+        const SizedBox(height: AppSpacing.md),
+        _inset(
+          Text(
+            brand,
+            style: t.bodySmall?.copyWith(color: context.palette.textSecondary),
+          ),
+        ),
+        for (final model in models) _tile(model),
+      ],
+    ];
+  }
+
+  List<Widget> _searchChildren() {
+    final results = widget.references.search(_query);
+    if (results.isEmpty) {
+      return [
+        const SizedBox(height: AppSpacing.md),
+        _inset(
+          Text(
+            '找不到「$_query」，試試品牌、型號或其他名稱',
+            key: const ValueKey('weight-reference-search-empty'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: context.palette.textSecondary,
             ),
           ),
         ),
-      );
-    },
-  );
+      ];
+    }
+    return [
+      const SizedBox(height: AppSpacing.sm),
+      for (final result in results)
+        _tile(result, subtitle: _searchSubtitle(result)),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final searching = _query.isNotEmpty;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+        ),
+        child: Padding(
+          // 型號列有選取底色,左右只留 sm;標題等文字另補 sm,與列內文字對齊。
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.sm,
+            0,
+            AppSpacing.sm,
+            AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _inset(Text('帶入參考值', style: t.titleLarge)),
+              if (widget.variants.isNotEmpty || searching) ...[
+                const SizedBox(height: AppSpacing.xs),
+                _inset(Text('選品牌型號時，項目名稱會改成型號名。', style: t.bodySmall)),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              _inset(
+                TextField(
+                  key: const ValueKey('weight-reference-search'),
+                  controller: _queryController,
+                  autofocus: widget.generic == null && widget.variants.isEmpty,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: '搜尋品牌、型號或名稱',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: searching
+                        ? IconButton(
+                            tooltip: '清除搜尋',
+                            icon: const Icon(Icons.close),
+                            onPressed: () => setState(_queryController.clear),
+                          )
+                        : null,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              ...(searching ? _searchChildren() : _browseChildren()),
+              const SizedBox(height: AppSpacing.md),
+              _inset(
+                Text(
+                  WeightReferenceLabels.source(widget.references),
+                  style: t.bodySmall?.copyWith(
+                    color: context.palette.textTertiary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -288,6 +288,47 @@ void main() {
       expect(repository.matchItem(_item('登山杖')), isNull);
     });
 
+    test('search:多個關鍵字都要符合,可搜品牌/別名/所屬通用項目,已下架不列', () async {
+      source
+        ..version = DateTime.utc(2026, 9, 20)
+        ..rows = [
+          _weight('large-backpack', name: '大背包'),
+          _weight(
+            'osprey-exos-58',
+            name: 'Osprey Exos 58',
+            parentKey: 'large-backpack',
+            brand: 'Osprey',
+            aliases: ['Exos58'],
+          ),
+          _weight(
+            'gregory-focal-48',
+            name: 'Gregory Focal 48',
+            parentKey: 'large-backpack',
+            brand: 'Gregory',
+          ),
+          _weight('thermos', name: '保溫瓶', aliases: ['保溫杯']),
+          _weight('old-pack', name: 'Osprey Old', isActive: false),
+        ];
+      await repository.sync();
+
+      List<String> keys(String q) => [
+        for (final hit in repository.search(q)) hit.key,
+      ];
+
+      expect(keys('osprey'), ['osprey-exos-58']);
+      expect(keys('exos58'), ['osprey-exos-58']);
+      expect(keys('osprey 58'), ['osprey-exos-58']);
+      expect(keys('osprey 48'), isEmpty);
+      // 所屬通用項目名稱也搜得到;名稱完全相符的通用項目排第一
+      expect(keys('大背包'), [
+        'large-backpack',
+        'gregory-focal-48',
+        'osprey-exos-58',
+      ]);
+      expect(keys('保溫杯'), ['thermos']);
+      expect(keys('  '), isEmpty);
+    });
+
     test('同名時通用項目優先於型號', () async {
       source
         ..version = DateTime.utc(2026, 9, 20)
