@@ -667,11 +667,11 @@ void main() {
     expect(shirt.containerItemId, isNull);
     expect(find.text('穿戴'), findsWidgets);
     await tester.scrollUntilVisible(
-      find.textContaining('背包總重'),
+      find.textContaining('/ 總重'),
       -300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining('背包總重 3.6'), findsOneWidget);
+    expect(find.textContaining('/ 總重 3.6'), findsOneWidget);
     expect(find.textContaining('穿戴 540'), findsWidgets);
   });
 }

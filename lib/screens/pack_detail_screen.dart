@@ -665,10 +665,17 @@ class _WeightHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
-              '背包總重 ${WeightFormatters.gram(summary.totalGram, unit: unit)}',
-              style: t.headlineMedium,
+            // 固定一行:數字變長或字級放大時縮小,不換行。
+            FittedBox(
+              key: const ValueKey('weight-header-total'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
+                '總重 ${WeightFormatters.gram(summary.totalGram, unit: unit)}',
+                style: t.headlineMedium,
+                maxLines: 1,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             if (summary.wornGram > 0)
@@ -1701,11 +1708,28 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               ),
             ],
             const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _weightController,
-              decoration: const InputDecoration(labelText: '單件重量 g'),
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _weightController,
+                    decoration: const InputDecoration(labelText: '單件重量 g'),
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _quantityController,
+                    decoration: const InputDecoration(labelText: '數量'),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
             ),
             Align(
               alignment: Alignment.centerLeft,
@@ -1735,103 +1759,80 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                   color: context.palette.textSecondary,
                 ),
               ),
-            TextField(
-              controller: _quantityController,
-              decoration: const InputDecoration(labelText: '數量'),
-              keyboardType: TextInputType.number,
-            ),
             const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<WeightClass>(
-              value: _weightClass,
-              decoration: const InputDecoration(labelText: '重量類型'),
-              items: WeightClass.values
-                  .map(
-                    (weightClass) => DropdownMenuItem(
-                      value: weightClass,
-                      enabled:
-                          weightClass == WeightClass.packed ||
-                          !(widget.item?.isContainer == true &&
-                              widget.containers.length <= 1),
-                      child: Text(
-                        weightClass != WeightClass.packed &&
-                                widget.item?.isContainer == true &&
-                                widget.containers.length <= 1
-                            ? '${_weightClassLabel(weightClass)}（需保留容器）'
-                            : _weightClassLabel(weightClass),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _weightClass = value;
-                  if (value != WeightClass.packed) {
-                    _isContainer = false;
-                    if (value == WeightClass.worn) {
-                      _containerItemId = null;
-                    }
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<ItemNecessity>(
-              value: _necessity,
-              decoration: const InputDecoration(labelText: '必要性'),
-              items: ItemNecessity.values
-                  .map(
-                    (necessity) => DropdownMenuItem(
-                      value: necessity,
-                      child: Text(_necessityLabel(necessity)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _necessity = value);
-              },
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<WeightClass>(
+                    value: _weightClass,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: '重量類型'),
+                    items: WeightClass.values
+                        .map(
+                          (weightClass) => DropdownMenuItem(
+                            value: weightClass,
+                            enabled:
+                                weightClass == WeightClass.packed ||
+                                !_mustStayContainer,
+                            child: Text(
+                              weightClass != WeightClass.packed &&
+                                      _mustStayContainer
+                                  ? '${_weightClassLabel(weightClass)}（需保留容器）'
+                                  : _weightClassLabel(weightClass),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _weightClass = value;
+                        if (value != WeightClass.packed) {
+                          _isContainer = false;
+                          if (value == WeightClass.worn) {
+                            _containerItemId = null;
+                          }
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: DropdownButtonFormField<ItemNecessity>(
+                    value: _necessity,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: '必要性'),
+                    items: ItemNecessity.values
+                        .map(
+                          (necessity) => DropdownMenuItem(
+                            value: necessity,
+                            child: Text(
+                              _necessityLabel(necessity),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _necessity = value);
+                    },
+                  ),
+                ),
+              ],
             ),
             if (_weightClass == WeightClass.packed) ...[
               const SizedBox(height: AppSpacing.md),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('設為背包/行李容器'),
-                subtitle: const Text('容器本身會計入重量，其他項目可放入此處'),
-                value: _isContainer,
-                onChanged: (value) {
-                  setState(() {
-                    _isContainer = value;
-                    if (value) _containerItemId = null;
-                  });
-                },
-              ),
-            ],
-            if (_weightClass != WeightClass.worn &&
-                !_isContainer &&
-                _availableContainers.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<String?>(
-                value:
-                    _availableContainers.any(
-                      (container) => container.id == _containerItemId,
-                    )
-                    ? _containerItemId
-                    : null,
-                decoration: const InputDecoration(labelText: '放置位置'),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('未指定'),
-                  ),
-                  ..._availableContainers.map(
-                    (container) => DropdownMenuItem<String?>(
-                      value: container.id,
-                      child: Text(container.name),
-                    ),
-                  ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: _placementField(context)),
+                  const SizedBox(width: AppSpacing.md),
+                  _containerToggle(context),
                 ],
-                onChanged: (value) => setState(() => _containerItemId = value),
               ),
             ],
           ],
@@ -1858,6 +1859,85 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
           child: const Text('取消'),
         ),
         FilledButton(onPressed: _save, child: const Text('儲存')),
+      ],
+    );
+  }
+
+  /// 清單中唯一的容器:重量類型不能改成穿戴。
+  bool get _mustStayContainer =>
+      widget.item?.isContainer == true && widget.containers.length <= 1;
+
+  /// 放置位置;本身是容器時不能再放進別的容器,只顯示說明。
+  Widget _placementField(BuildContext context) {
+    if (_isContainer || _availableContainers.isEmpty) {
+      return InputDecorator(
+        decoration: const InputDecoration(labelText: '放置位置', enabled: false),
+        child: Text(
+          _isContainer ? '本身為容器' : '尚無容器',
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: context.palette.textTertiary),
+        ),
+      );
+    }
+    return DropdownButtonFormField<String?>(
+      key: const ValueKey('item-editor-placement'),
+      value:
+          _availableContainers.any(
+            (container) => container.id == _containerItemId,
+          )
+          ? _containerItemId
+          : null,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: '放置位置'),
+      items: [
+        const DropdownMenuItem<String?>(value: null, child: Text('未指定')),
+        ..._availableContainers.map(
+          (container) => DropdownMenuItem<String?>(
+            value: container.id,
+            child: Text(container.name, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (value) => setState(() => _containerItemId = value),
+    );
+  }
+
+  /// 「設為容器」開關;完整說明長按 (i) 顯示。
+  Widget _containerToggle(BuildContext context) {
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('設為容器', style: labelStyle),
+            const SizedBox(width: AppSpacing.xs),
+            Tooltip(
+              key: const ValueKey('item-editor-container-info'),
+              message: '設為背包/行李容器：容器本身會計入重量，其他項目可放入此處',
+              triggerMode: TooltipTriggerMode.longPress,
+              child: Icon(
+                Icons.info_outline,
+                size: 16,
+                color: context.palette.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        Switch(
+          key: const ValueKey('item-editor-container-switch'),
+          value: _isContainer,
+          onChanged: (value) {
+            setState(() {
+              _isContainer = value;
+              if (value) _containerItemId = null;
+            });
+          },
+        ),
       ],
     );
   }
