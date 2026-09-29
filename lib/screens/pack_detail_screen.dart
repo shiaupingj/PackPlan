@@ -33,6 +33,9 @@ class PackDetailScreen extends StatefulWidget {
 
 class _PackDetailScreenState extends State<PackDetailScreen> {
   bool _ulMode = false;
+
+  /// 放置位置分頁:null 為全部,否則是容器 id、[_unassignedTab] 或 [_wornTab]。
+  String? _placement;
   WeightReferenceRepository? _references;
 
   @override
@@ -73,6 +76,13 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final groupedItems = _groupItems(list.items);
     final suggestions = WeightCalculator.suggestions(list);
     final containers = _containerItems(list.items);
+    final placement = _validPlacement(list.items, containers);
+    final visibleGroups = {
+      for (final entry in groupedItems.entries)
+        if (entry.value.where((item) => _inPlacement(item, placement)).toList()
+            case final items when items.isNotEmpty)
+          entry.key: items,
+    };
     final categoryNames = _categoryNames(list.items);
     final categoryIdByName = _categoryIdByName(list.items);
     final missingWeightItems = list.items
@@ -168,6 +178,8 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             containers: containers,
             unit: settings.weightUnit,
             showWeight: list.showWeight,
+            selected: placement,
+            onSelected: (value) => setState(() => _placement = value),
           ),
           const SizedBox(height: AppSpacing.lg),
           _UlModePreview(
@@ -179,7 +191,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             onChanged: (value) => setState(() => _ulMode = value),
           ),
           const SizedBox(height: AppSpacing.md),
-          ...groupedItems.entries.map(
+          ...visibleGroups.entries.map(
             (entry) => _CategorySection(
               name: entry.key,
               items: entry.value,
@@ -199,10 +211,6 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
               ),
               onDelete: (item) =>
                   _requestDeleteItem(context, list, item, containers),
-              containerNameById: {
-                for (final container in containers)
-                  container.id: container.name,
-              },
               onAddItem: (categoryName) => _showItemEditor(
                 context,
                 list.id,
@@ -210,7 +218,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                 categoryNames: categoryNames,
                 categoryIdByName: categoryIdByName,
                 initialCategoryName: categoryName,
+                initialContainerId: _isContainerTab(placement)
+                    ? placement
+                    : null,
               ),
+              // 篩選某個放置位置時只看到部分項目,不開放拖曳排序。
+              canReorder: placement == null,
               onReorder: (items) => repository.reorderItems(list.id, items),
               onRename: () =>
                   _showCategoryRenameDialog(context, list.id, entry.key),
@@ -219,6 +232,19 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// 目前的放置位置分頁;選到的容器被刪除或已無對應項目時回到全部。
+  String? _validPlacement(List<PackItem> items, List<PackItem> containers) {
+    return switch (_placement) {
+      null => null,
+      _unassignedTab => items.any(_isUnassigned) ? _unassignedTab : null,
+      _wornTab =>
+        items.any((item) => item.weightClass == WeightClass.worn)
+            ? _wornTab
+            : null,
+      final id => containers.any((c) => c.id == id) ? id : null,
+    };
   }
 
   Future<void> _fillMissingWeights(
@@ -462,6 +488,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     required List<String> categoryNames,
     required Map<String, String> categoryIdByName,
     String? initialCategoryName,
+    String? initialContainerId,
   }) async {
     final repository = AppScope.of(context);
     final result = await showDialog<_ItemEditorResult>(
@@ -472,6 +499,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         categoryNames: categoryNames,
         categoryIdByName: categoryIdByName,
         initialCategoryName: initialCategoryName,
+        initialContainerId: initialContainerId,
       ),
     );
     if (result == null) return;
@@ -829,33 +857,93 @@ class _UlModePreview extends StatelessWidget {
   }
 }
 
+const _unassignedTab = '__unassigned__';
+const _wornTab = '__worn__';
+
+bool _isContainerTab(String? placement) =>
+    placement != null && placement != _unassignedTab && placement != _wornTab;
+
+bool _isUnassigned(PackItem item) =>
+    !item.isContainer &&
+    item.weightClass != WeightClass.worn &&
+    item.containerItemId == null;
+
+/// 項目是否屬於目前的放置位置分頁(容器分頁包含容器本身)。
+bool _inPlacement(PackItem item, String? placement) => switch (placement) {
+  null => true,
+  _unassignedTab => _isUnassigned(item),
+  _wornTab => item.weightClass == WeightClass.worn,
+  final id => item.id == id || item.containerItemId == id,
+};
+
+/// 放置位置:以分頁切換「全部 / 各容器 / 未放入 / 身上穿戴」,
+/// 下方清單只列出該位置的項目,項目本身就不用再標示「放在哪」。
 class _ContainerSummarySection extends StatelessWidget {
   const _ContainerSummarySection({
     required this.items,
     required this.containers,
     required this.unit,
     required this.showWeight,
+    required this.selected,
+    required this.onSelected,
   });
 
   final List<PackItem> items;
   final List<PackItem> containers;
   final WeightUnit unit;
   final bool showWeight;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  String _gram(int gram) => WeightFormatters.gram(gram, unit: unit);
+
+  static int _totalWeight(Iterable<PackItem> items) =>
+      items.fold(0, (total, item) => total + item.totalWeightGram);
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final unassignedItems = items
-        .where(
-          (item) =>
-              !item.isContainer &&
-              item.weightClass != WeightClass.worn &&
-              item.containerItemId == null,
-        )
-        .toList();
-    final wornItems = items
+    final unassigned = items.where(_isUnassigned).toList();
+    final worn = items
         .where((item) => item.weightClass == WeightClass.worn)
         .toList();
+    List<PackItem> contentsOf(PackItem container) =>
+        items.where((item) => item.containerItemId == container.id).toList();
+
+    final tabs = <(String?, String, int)>[
+      (null, '全部', items.length),
+      for (final container in containers)
+        (container.id, container.name, contentsOf(container).length),
+      if (unassigned.isNotEmpty) (_unassignedTab, '未放入', unassigned.length),
+      if (worn.isNotEmpty) (_wornTab, '身上穿戴', worn.length),
+    ];
+
+    final String detail;
+    Color? detailColor;
+    switch (selected) {
+      case null:
+        detail = containers.isEmpty ? '至少需要新增一個背包或行李容器。' : '點分頁只看放在該處的項目。';
+      case _unassignedTab:
+        detail = showWeight
+            ? '未放入 ${unassigned.length} 項 · ${_gram(_totalWeight(unassigned))}'
+            : '未放入 ${unassigned.length} 項';
+        detailColor = AppColors.weightNear;
+      case _wornTab:
+        detail = showWeight
+            ? '身上穿戴 ${worn.length} 項 · ${_gram(_totalWeight(worn))}（不計背重）'
+            : '身上穿戴 ${worn.length} 項（不計背重）';
+        detailColor = AppColors.primary;
+      case final id:
+        final container = containers.firstWhere((c) => c.id == id);
+        final contents = contentsOf(container);
+        final contentWeight = _totalWeight(contents);
+        detail = showWeight
+            ? '本體 ${_gram(container.totalWeightGram)} · '
+                  '內容物 ${_gram(contentWeight)} · '
+                  '合計 ${_gram(container.totalWeightGram + contentWeight)} · '
+                  '${contents.length} 項'
+            : '${contents.length} 項已放入';
+    }
 
     return Card(
       child: Padding(
@@ -865,194 +953,101 @@ class _ContainerSummarySection extends StatelessWidget {
           children: [
             Text('放置位置', style: t.titleMedium),
             const SizedBox(height: AppSpacing.md),
-            if (containers.isEmpty)
-              Text('至少需要新增一個背包或行李容器。', style: t.bodySmall)
-            else
-              ...containers.map((container) {
-                final contentItems = items
-                    .where((item) => item.containerItemId == container.id)
-                    .toList();
-                final contentWeight = contentItems.fold(
-                  0,
-                  (total, item) => total + item.totalWeightGram,
-                );
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: _ContainerSummaryRow(
-                    name: container.name,
-                    containerWeight: container.totalWeightGram,
-                    contentWeight: contentWeight,
-                    itemCount: contentItems.length,
-                    contentItems: contentItems,
-                    unit: unit,
-                    showWeight: showWeight,
-                  ),
-                );
-              }),
-            if (unassignedItems.isNotEmpty) ...[
-              const Divider(height: AppSpacing.lg),
-              Text(
-                showWeight
-                    ? '未放入 ${unassignedItems.length} 項 · '
-                          '${WeightFormatters.gram(_totalWeight(unassignedItems), unit: unit)}'
-                    : '未放入 ${unassignedItems.length} 項',
-                style: t.bodySmall?.copyWith(color: AppColors.weightNear),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final (value, label, count) in tabs)
+                    Padding(
+                      padding: const EdgeInsets.only(right: AppSpacing.sm),
+                      child: _PlacementTab(
+                        key: ValueKey('placement-tab-${value ?? 'all'}'),
+                        label: label,
+                        count: count,
+                        selected: value == selected,
+                        onTap: () => onSelected(value),
+                      ),
+                    ),
+                ],
               ),
-            ],
-            if (wornItems.isNotEmpty) ...[
-              const Divider(height: AppSpacing.lg),
-              Text(
-                showWeight
-                    ? '身上穿戴 ${wornItems.length} 項 · '
-                          '${WeightFormatters.gram(_totalWeight(wornItems), unit: unit)}'
-                    : '身上穿戴 ${wornItems.length} 項',
-                style: t.bodySmall?.copyWith(color: AppColors.primary),
-              ),
-            ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              detail,
+              key: const ValueKey('placement-detail'),
+              style: t.bodySmall?.copyWith(color: detailColor),
+            ),
           ],
         ),
       ),
     );
   }
-
-  static int _totalWeight(List<PackItem> items) {
-    return items.fold(0, (total, item) => total + item.totalWeightGram);
-  }
 }
 
-class _ContainerSummaryRow extends StatelessWidget {
-  const _ContainerSummaryRow({
-    required this.name,
-    required this.containerWeight,
-    required this.contentWeight,
-    required this.itemCount,
-    required this.contentItems,
-    required this.unit,
-    required this.showWeight,
+class _PlacementTab extends StatelessWidget {
+  const _PlacementTab({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
   });
 
-  final String name;
-  final int containerWeight;
-  final int contentWeight;
-  final int itemCount;
-  final List<PackItem> contentItems;
-  final WeightUnit unit;
-  final bool showWeight;
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final totalWeight = containerWeight + contentWeight;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final foreground = selected
+        ? AppColors.onPrimary
+        : context.palette.textPrimary;
+    return Material(
+      color: selected ? AppColors.primary : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: selected ? AppColors.primary : context.palette.border,
+        ),
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(name, style: t.bodyMedium),
-              const SizedBox(height: AppSpacing.xs),
-              if (showWeight)
-                Text(
-                  '本體 ${WeightFormatters.gram(containerWeight, unit: unit)} · '
-                  '內容物 ${WeightFormatters.gram(contentWeight, unit: unit)} · '
-                  '合計 ${WeightFormatters.gram(totalWeight, unit: unit)}',
-                  style: t.bodySmall,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 160),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: t.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: selected ? FontWeight.w500 : null,
+                  ),
                 ),
-              Text('$itemCount 項已放入', style: t.bodySmall),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                '$count',
+                style: t.bodySmall?.copyWith(
+                  color: selected
+                      ? AppColors.onPrimary
+                      : context.palette.textTertiary,
+                ),
+              ),
             ],
           ),
         ),
-        if (contentItems.isNotEmpty)
-          IconButton(
-            tooltip: '查看 $name 內容物',
-            icon: const Icon(Icons.search, size: 20),
-            onPressed: () => _showContentsDialog(context),
-          ),
-      ],
-    );
-  }
-
-  Future<void> _showContentsDialog(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          titlePadding: AppDialogTitle.padding,
-          title: AppDialogTitle('$name 內容物'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (showWeight)
-                    Text(
-                      '容器本體 ${WeightFormatters.gram(containerWeight, unit: unit)}',
-                      style: t.bodySmall,
-                    ),
-                  Text(
-                    showWeight
-                        ? '內容物 $itemCount 項 · '
-                              '${WeightFormatters.gram(contentWeight, unit: unit)}'
-                        : '內容物 $itemCount 項',
-                    style: t.bodySmall,
-                  ),
-                  const Divider(height: AppSpacing.lg),
-                  ...contentItems.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.quantity > 1
-                                      ? '${item.name} x${item.quantity}'
-                                      : item.name,
-                                  style: t.bodyMedium,
-                                ),
-                                const SizedBox(height: AppSpacing.xs),
-                                Text(
-                                  item.categoryName,
-                                  style: t.bodySmall?.copyWith(
-                                    color: context.palette.textTertiary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (showWeight) ...[
-                            const SizedBox(width: AppSpacing.md),
-                            Text(
-                              WeightFormatters.gram(
-                                item.totalWeightGram,
-                                unit: unit,
-                              ),
-                              style: t.bodySmall,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('關閉'),
-            ),
-          ],
-        );
-      },
+      ),
     );
   }
 }
@@ -1068,8 +1063,8 @@ class _CategorySection extends StatelessWidget {
     required this.onChanged,
     required this.onEdit,
     required this.onDelete,
-    required this.containerNameById,
     required this.onAddItem,
+    required this.canReorder,
     required this.onReorder,
     required this.onRename,
   });
@@ -1083,8 +1078,8 @@ class _CategorySection extends StatelessWidget {
   final void Function(PackItem item, bool checked) onChanged;
   final ValueChanged<PackItem> onEdit;
   final ValueChanged<PackItem> onDelete;
-  final Map<String, String> containerNameById;
   final ValueChanged<String> onAddItem;
+  final bool canReorder;
   final ValueChanged<List<PackItem>> onReorder;
   final VoidCallback onRename;
 
@@ -1192,22 +1187,19 @@ class _CategorySection extends StatelessWidget {
                               item.weightClass == WeightClass.worn ||
                               (item.weightClass == WeightClass.packed &&
                                   item.necessity == ItemNecessity.luxury),
-                          containerLabel:
-                              item.isContainer || item.containerItemId == null
-                              ? null
-                              : containerNameById[item.containerItemId],
                           onChanged: (checked) => onChanged(item, checked),
                           onEdit: () => onEdit(item),
                           onLongPress: () => _showItemActions(context, item),
                         ),
                       ),
-                      ReorderableDragStartListener(
-                        index: index,
-                        child: const Padding(
-                          padding: EdgeInsets.all(AppSpacing.sm),
-                          child: Icon(Icons.drag_handle),
+                      if (canReorder)
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Padding(
+                            padding: EdgeInsets.all(AppSpacing.sm),
+                            child: Icon(Icons.drag_handle),
+                          ),
                         ),
-                      ),
                     ],
                   );
                 },
@@ -1526,6 +1518,7 @@ class _ItemEditorDialog extends StatefulWidget {
     required this.categoryNames,
     required this.categoryIdByName,
     this.initialCategoryName,
+    this.initialContainerId,
   });
 
   final PackItem? item;
@@ -1533,6 +1526,9 @@ class _ItemEditorDialog extends StatefulWidget {
   final List<String> categoryNames;
   final Map<String, String> categoryIdByName;
   final String? initialCategoryName;
+
+  /// 新增項目的預設放置位置(從某個放置位置分頁新增時帶入)。
+  final String? initialContainerId;
 
   @override
   State<_ItemEditorDialog> createState() => _ItemEditorDialogState();
@@ -1562,7 +1558,9 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       widget.item?.weightClass ?? WeightClass.packed;
   late bool _isContainer = widget.item?.isContainer ?? false;
   late String? _containerItemId =
-      widget.item?.containerItemId ?? _defaultContainerItemId;
+      widget.item?.containerItemId ??
+      widget.initialContainerId ??
+      _defaultContainerItemId;
   late String _lastCategoryName;
   bool _isAddingCategory = false;
 
