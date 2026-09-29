@@ -66,11 +66,11 @@ export function parseCsv(text) {
   return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
 }
 
-function parseOptionalInt(raw, label, errors, line) {
+function parseOptionalInt(raw, label, errors, where) {
   const value = raw.trim();
   if (value === '') return null;
   if (!/^\d+$/.test(value) || Number(value) <= 0) {
-    errors.push(`第 ${line} 行:${label}「${value}」必須是正整數(公克)`);
+    errors.push(`${where}:${label}「${value}」必須是正整數(公克)`);
     return null;
   }
   return Number(value);
@@ -87,7 +87,8 @@ export function buildDocs(text) {
 }
 
 // rows:第一列為欄位名稱的字串二維陣列(CSV 或 xlsx 皆可)
-export function buildDocsFromRows(rawRows) {
+// lineLabel(line):把列號(第一列 = 1)轉成錯誤訊息裡的位置;xlsx 多分頁時會帶分頁名稱
+export function buildDocsFromRows(rawRows, { lineLabel = (line) => `第 ${line} 行` } = {}) {
   // 空白列不先濾掉,讓錯誤訊息的「第 N 行」對得上 Excel 的列號
   const rows = rawRows.map((row) =>
     row.map((cell) => (cell == null ? '' : String(cell))),
@@ -125,44 +126,44 @@ export function buildDocsFromRows(rawRows) {
     const itemKey = get('item_key');
     const nameZh = get('name_zh');
     if (!KEY_PATTERN.test(itemKey)) {
-      errors.push(`第 ${line} 行:item_key「${itemKey}」只能用小寫英數與 -`);
+      errors.push(`${lineLabel(line)}:item_key「${itemKey}」只能用小寫英數與 -`);
       return;
     }
     if (docs.has(itemKey)) {
-      errors.push(`第 ${line} 行:item_key「${itemKey}」重複`);
+      errors.push(`${lineLabel(line)}:item_key「${itemKey}」重複`);
       return;
     }
     if (nameZh === '') {
-      errors.push(`第 ${line} 行:${itemKey} 缺 name_zh`);
+      errors.push(`${lineLabel(line)}:${itemKey} 缺 name_zh`);
       return;
     }
 
     const parentKey = get('parent_key') || null;
     if (parentKey !== null) {
       if (parentKey === itemKey || !parentOf.has(parentKey)) {
-        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」不存在於表格`);
+        errors.push(`${lineLabel(line)}:${itemKey} 的 parent_key「${parentKey}」不存在於表格`);
         return;
       }
       if (parentOf.get(parentKey)) {
-        errors.push(`第 ${line} 行:${itemKey} 的 parent_key「${parentKey}」本身也是型號,只支援一層`);
+        errors.push(`${lineLabel(line)}:${itemKey} 的 parent_key「${parentKey}」本身也是型號,只支援一層`);
         return;
       }
     }
 
     const lineErrors = [];
-    let weightGram = parseOptionalInt(get('weight_gram'), 'weight_gram', lineErrors, line);
-    const weightMin = parseOptionalInt(get('weight_min'), 'weight_min', lineErrors, line);
-    const weightMax = parseOptionalInt(get('weight_max'), 'weight_max', lineErrors, line);
+    let weightGram = parseOptionalInt(get('weight_gram'), 'weight_gram', lineErrors, lineLabel(line));
+    const weightMin = parseOptionalInt(get('weight_min'), 'weight_min', lineErrors, lineLabel(line));
+    const weightMax = parseOptionalInt(get('weight_max'), 'weight_max', lineErrors, lineLabel(line));
     if (lineErrors.length > 0) {
       errors.push(...lineErrors);
       return;
     }
     if ((weightMin === null) !== (weightMax === null)) {
-      errors.push(`第 ${line} 行:${itemKey} 的 weight_min / weight_max 要一起填`);
+      errors.push(`${lineLabel(line)}:${itemKey} 的 weight_min / weight_max 要一起填`);
       return;
     }
     if (weightMin !== null && weightMin > weightMax) {
-      errors.push(`第 ${line} 行:${itemKey} 的 weight_min 大於 weight_max`);
+      errors.push(`${lineLabel(line)}:${itemKey} 的 weight_min 大於 weight_max`);
       return;
     }
     if (weightGram === null && weightMin !== null) {
@@ -173,7 +174,7 @@ export function buildDocsFromRows(rawRows) {
       return;
     }
     if (weightMin !== null && (weightGram < weightMin || weightGram > weightMax)) {
-      errors.push(`第 ${line} 行:${itemKey} 的 weight_gram 不在範圍內`);
+      errors.push(`${lineLabel(line)}:${itemKey} 的 weight_gram 不在範圍內`);
       return;
     }
 

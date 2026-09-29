@@ -4,7 +4,7 @@
 //   node import_gear_weights.mjs ~/dev_data/PackPlan/gear_weights.xlsx          # 預覽(不寫入)
 //   node import_gear_weights.mjs ~/dev_data/PackPlan/gear_weights.xlsx --apply  # 實際寫入
 //
-// xlsx 讀「gear_weights」分頁;副檔名是 .csv 時照舊讀 CSV。
+// xlsx 每個分頁是一個分類(分頁名稱 = category_id,「說明」不讀);副檔名是 .csv 時照舊讀 CSV。
 //
 // 認證:設定環境變數 GOOGLE_APPLICATION_CREDENTIALS 指向服務帳戶金鑰 JSON
 // (Firebase Console → 專案設定 → 服務帳戶 → 產生新的私密金鑰)。金鑰請放在 repo 外。
@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { buildDocs, buildDocsFromRows, diffDocs } from './gear_weights_csv.mjs';
-import { readXlsxRows } from './gear_weights_xlsx.mjs';
+import { readXlsxTable } from './gear_weights_xlsx.mjs';
 
 const PROJECT_ID = 'packplan-86e9d';
 const COLLECTION = 'gear_weights';
@@ -32,9 +32,17 @@ if (!csvPath) {
   process.exit(1);
 }
 
-const { docs, pending, errors } = csvPath.toLowerCase().endsWith('.csv')
-  ? buildDocs(readFileSync(csvPath, 'utf8'))
-  : buildDocsFromRows(await readXlsxRows(csvPath));
+async function readTable(path) {
+  if (path.toLowerCase().endsWith('.csv')) return buildDocs(readFileSync(path, 'utf8'));
+  try {
+    const { rows, lineLabel } = await readXlsxTable(path);
+    return buildDocsFromRows(rows, { lineLabel });
+  } catch (e) {
+    return { docs: new Map(), pending: [], errors: [e.message] };
+  }
+}
+
+const { docs, pending, errors } = await readTable(csvPath);
 
 if (errors.length > 0) {
   console.error(`表格有 ${errors.length} 個錯誤,未寫入任何資料:`);
@@ -43,6 +51,12 @@ if (errors.length > 0) {
 }
 
 console.log(`表格:${docs.size} 筆有重量,${pending.length} 筆待填(略過)`);
+const byCategory = new Map();
+for (const doc of docs.values()) {
+  const category = doc.categoryId ?? '(未分類)';
+  byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
+}
+for (const [category, count] of byCategory) console.log(`  ${category}:${count} 筆`);
 
 const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 if (!keyPath || !existsSync(keyPath)) {
