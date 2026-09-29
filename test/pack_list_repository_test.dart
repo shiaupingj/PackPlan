@@ -100,7 +100,7 @@ void main() {
       weatherConditions: const <WeatherCondition>{},
     );
 
-    expect(items, hasLength(62));
+    expect(items, hasLength(63));
     expect(items.map((item) => item.categoryName).toSet(), {
       '背包系統',
       '睡眠系統',
@@ -115,6 +115,10 @@ void main() {
       '個人物品',
     });
     expect(items.every((item) => item.weightGram == 0), isTrue);
+    // 帳篷在睡眠系統,catalogKey 對應線上參考重量 tent
+    final tent = items.singleWhere((item) => item.name == '帳篷');
+    expect(tent.categoryName, '睡眠系統');
+    expect(tent.catalogKey, 'tent');
     // 鹽糖為選配食物 → 不套天數倍率，維持固定數量 2。
     expect(items.singleWhere((item) => item.name == '鹽糖').quantity, 2);
     expect(items.any((item) => item.name.contains('總重量')), isFalse);

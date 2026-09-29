@@ -133,7 +133,7 @@ void main() {
     await tapVisible(tester, find.text('下一步'));
 
     expect(find.text('Step 4 / 4'), findsOneWidget);
-    expect(find.text('已選 42 個項目'), findsOneWidget);
+    expect(find.text('已選 43 個項目'), findsOneWidget);
 
     await tapVisible(tester, find.text('生成清單'));
 
