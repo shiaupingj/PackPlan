@@ -294,7 +294,7 @@ void main() {
     expect(pack.catalogKey, 'large-backpack');
   });
 
-  testWidgets('查無參考資料時提示使用者', (tester) async {
+  testWidgets('比對不到時直接開搜尋,並以項目名稱當關鍵字', (tester) async {
     await openList(tester);
 
     await scrollTo(
@@ -310,6 +310,48 @@ void main() {
       find.byKey(const ValueKey('item-editor-weight-reference')),
     );
 
-    expect(find.text('查無「行動電源」的參考重量'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextField, '行動電源'),
+      findsWidgets,
+      reason: '搜尋框預先帶入項目名稱',
+    );
+    expect(find.text('找不到「行動電源」，試試品牌、型號或其他名稱'), findsOneWidget);
+
+    // 改用品牌搜尋,可以選到其他項目底下的型號
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      'nalgene',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('weight-reference-nalgene-1l')));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Nalgene 寬口瓶 1L'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '180'), findsOneWidget);
+  });
+
+  testWidgets('有型號清單時也能搜尋整個重量庫', (tester) async {
+    await openList(tester);
+
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    expect(find.text('通用值（大背包）'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      'exos',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('通用值（大背包）'), findsNothing);
+    expect(find.text('Osprey · 屬於「大背包」'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
+      findsOneWidget,
+    );
   });
 }

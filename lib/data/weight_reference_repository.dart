@@ -170,6 +170,45 @@ class WeightReferenceRepository extends ChangeNotifier {
       });
   }
 
+  /// 關鍵字搜尋全部有效資料:以空白分隔的每個詞都要出現在
+  /// 名稱、品牌、別名或所屬通用項目名稱中。名稱完全相符 > 開頭相符 > 其他,
+  /// 同分時通用項目在前、再依品牌與名稱排序。
+  List<GearWeight> search(String query, {int limit = 50}) {
+    final terms = query
+        .split(RegExp(r'\s+'))
+        .map(normalizeName)
+        .where((term) => term.isNotEmpty)
+        .toList();
+    if (terms.isEmpty) return const [];
+    final whole = normalizeName(query);
+
+    int rank(GearWeight entry) {
+      final names = [entry.nameZh, ...entry.aliases].map(normalizeName);
+      if (names.any((name) => name == whole)) return 0;
+      if (names.any((name) => name.startsWith(whole))) return 1;
+      return 2;
+    }
+
+    final hits = <(int, GearWeight)>[];
+    for (final entry in _entries.values) {
+      if (!entry.isActive) continue;
+      final parentName = entry.parentKey == null
+          ? ''
+          : lookup(entry.parentKey!)?.nameZh ?? '';
+      final haystack = normalizeName(
+        [entry.nameZh, entry.brand ?? '', ...entry.aliases, parentName].join(),
+      );
+      if (terms.every(haystack.contains)) hits.add((rank(entry), entry));
+    }
+    hits.sort((a, b) {
+      if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
+      if (a.$2.isVariant != b.$2.isVariant) return a.$2.isVariant ? 1 : -1;
+      final byBrand = (a.$2.brand ?? '').compareTo(b.$2.brand ?? '');
+      return byBrand != 0 ? byBrand : a.$2.nameZh.compareTo(b.$2.nameZh);
+    });
+    return [for (final hit in hits.take(limit)) hit.$2];
+  }
+
   /// 比對用:轉小寫並去掉所有空白,「Exos 58」與「exos58」視為相同。
   static String normalizeName(String name) =>
       name.toLowerCase().replaceAll(RegExp(r'\s+'), '');

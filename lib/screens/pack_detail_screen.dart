@@ -1985,16 +1985,12 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final variants = parentKey == null
         ? const <GearWeight>[]
         : references.variantsOf(parentKey);
-    if (generic == null && variants.isEmpty) {
-      setState(() {
-        _referenceNotice = name.isEmpty
-            ? '請先輸入名稱再查參考重量'
-            : references.hasData
-            ? '查無「$name」的參考重量'
-            : '目前沒有可用的參考重量，請確認網路後再試';
-      });
+    if (!references.hasData) {
+      setState(() => _referenceNotice = '目前沒有可用的參考重量，請確認網路後再試');
       return;
     }
+    // 比對不到時直接開搜尋,先用項目名稱當關鍵字。
+    final notFound = generic == null && variants.isEmpty;
 
     // 目前重量欄仍是某筆參考值時,在選單中標示為已選。
     final current = _currentReference;
@@ -2009,6 +2005,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               _weightController.text.trim() == '${current.weightGram}'
           ? current.key
           : null,
+      initialQuery: notFound ? name : null,
     );
     if (picked == null || !mounted) return;
     setState(() {
