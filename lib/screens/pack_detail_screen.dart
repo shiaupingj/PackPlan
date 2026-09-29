@@ -665,10 +665,17 @@ class _WeightHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
-              '背包總重 ${WeightFormatters.gram(summary.totalGram, unit: unit)}',
-              style: t.headlineMedium,
+            // 固定一行:數字變長或字級放大時縮小,不換行。
+            FittedBox(
+              key: const ValueKey('weight-header-total'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
+                '總重 ${WeightFormatters.gram(summary.totalGram, unit: unit)}',
+                style: t.headlineMedium,
+                maxLines: 1,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             if (summary.wornGram > 0)

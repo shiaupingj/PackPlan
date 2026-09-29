@@ -83,4 +83,21 @@ void main() {
     expect(saved.isContainer, isTrue);
     expect(saved.containerItemId, isNull);
   });
+
+  testWidgets('總重卡片:「已打包 / 總重」固定一行', (tester) async {
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+
+    final header = find.byKey(const ValueKey('weight-header-total'));
+    expect(
+      find.descendant(of: header, matching: find.textContaining('/ 總重')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('背包總重'), findsNothing);
+    // 一行字高:不超過 headlineMedium 字級的 1.5 倍
+    expect(tester.getSize(header).height, lessThan(34 * 1.5));
+  });
 }
