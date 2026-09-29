@@ -19,7 +19,6 @@ class ChecklistTile extends StatelessWidget {
     this.onChanged,
     this.onEdit,
     this.onLongPress,
-    this.containerLabel,
     this.dimmed = false,
     this.badgeLabel,
     this.badgeFilled = false,
@@ -39,7 +38,6 @@ class ChecklistTile extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
   final VoidCallback? onEdit;
   final VoidCallback? onLongPress;
-  final String? containerLabel;
   final bool dimmed;
   final String? badgeLabel;
   final bool badgeFilled;
@@ -83,29 +81,46 @@ class ChecklistTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: label),
-                          if (showWeight) ...[
-                            const TextSpan(text: ' '),
-                            TextSpan(
-                              text: weightMissing
-                                  ? '—\u00A0g'
-                                  : weightLabel ?? '${weightGram}g',
-                              style: t.bodyMedium?.copyWith(
-                                fontFamily: AppTypography.fontFamily,
-                                fontFamilyFallback:
-                                    AppTypography.fontFamilyFallback,
-                                color: weightMissing
-                                    ? context.palette.textTertiary
-                                    : null,
+                    // 名稱最多一行(過長以 … 截斷),重量與 ☁ 固定接在後面不被擠掉。
+                    Builder(
+                      builder: (context) {
+                        final lineStyle = t.bodyMedium?.copyWith(
+                          color: checked || dimmed
+                              ? context.palette.textTertiary
+                              : null,
+                          decoration: checked
+                              ? TextDecoration.lineThrough
+                              : null,
+                        );
+                        return Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                label,
+                                key: const ValueKey('checklist-tile-label'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: lineStyle,
                               ),
                             ),
-                            if (weightTooltip != null && !weightMissing)
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                child: Tooltip(
+                            if (showWeight) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                weightMissing
+                                    ? '—\u00A0g'
+                                    : weightLabel ?? '${weightGram}g',
+                                maxLines: 1,
+                                style: lineStyle?.copyWith(
+                                  fontFamily: AppTypography.fontFamily,
+                                  fontFamilyFallback:
+                                      AppTypography.fontFamilyFallback,
+                                  color: weightMissing
+                                      ? context.palette.textTertiary
+                                      : null,
+                                ),
+                              ),
+                              if (weightTooltip != null && !weightMissing)
+                                Tooltip(
                                   message: weightTooltip,
                                   triggerMode: TooltipTriggerMode.tap,
                                   child: Padding(
@@ -120,26 +135,11 @@ class ChecklistTile extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      style: t.bodyMedium?.copyWith(
-                        color: checked || dimmed
-                            ? context.palette.textTertiary
-                            : null,
-                        decoration: checked ? TextDecoration.lineThrough : null,
-                      ),
+                        );
+                      },
                     ),
-                    if (containerLabel != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '放在：$containerLabel',
-                        style: t.bodySmall?.copyWith(
-                          color: context.palette.textTertiary,
-                        ),
-                      ),
-                    ],
                     if (badgeLabel != null) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Container(

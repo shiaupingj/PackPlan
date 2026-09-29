@@ -123,7 +123,15 @@ void main() {
       tester,
       find.byKey(const ValueKey('checklist-tile-headlamp')),
     );
-    expect(find.textContaining('頭燈 — g', findRichText: true), findsOneWidget);
+    final headlamp = find.byKey(const ValueKey('checklist-tile-headlamp'));
+    expect(
+      find.descendant(of: headlamp, matching: find.text('頭燈')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: headlamp, matching: find.text('—\u00A0g')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('批次帶入參考重量後標示線上資料,且可復原', (tester) async {

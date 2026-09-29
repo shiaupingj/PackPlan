@@ -5,6 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/app/pack_plan_app.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/widgets/checklist_tile.dart';
+
+/// 清單列:名稱與重量分開顯示,依兩者找到那一列。
+Finder tileWith(String name, String weight) => find.byWidgetPredicate(
+  (widget) =>
+      widget is ChecklistTile &&
+      widget.label == name &&
+      (widget.weightMissing ? '—\u00A0g' : widget.weightLabel) == weight,
+);
 
 void main() {
   const nbsp = '\u00A0';
@@ -141,11 +150,11 @@ void main() {
     expect(find.text('超輕量化打包'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('雨衣 —${nbsp}g'),
+      tileWith('雨衣', '—${nbsp}g'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('雨衣 —${nbsp}g'), findsOneWidget);
+    expect(tileWith('雨衣', '—${nbsp}g'), findsOneWidget);
     expect(find.textContaining('證件'), findsNothing);
   });
 
@@ -252,7 +261,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '確定刪除'));
     await tester.pumpAndSettle();
 
-    expect(find.text('水壺 500${nbsp}g'), findsNothing);
+    expect(tileWith('水壺', '500${nbsp}g'), findsNothing);
   });
 
   testWidgets('Deleting loaded luggage confirms and moves contents', (
@@ -359,11 +368,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('登頂包 100${nbsp}g'),
+      tileWith('登頂包', '100${nbsp}g'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('登頂包 100${nbsp}g'), findsOneWidget);
+    expect(tileWith('登頂包', '100${nbsp}g'), findsOneWidget);
   });
 
   testWidgets('Category add button pre-fills category', (tester) async {
@@ -425,18 +434,56 @@ void main() {
     );
   });
 
-  testWidgets('Container summary opens a contents dialog', (tester) async {
-    await tester.pumpWidget(const PackPlanApp());
-
-    await tester.tap(find.text('登山計劃'));
+  testWidgets('放置位置分頁:切換後只列出放在該處的項目', (tester) async {
+    // 畫面拉高,讓整份清單都建出來(清單為延遲建構)
+    tester.view
+      ..physicalSize = const Size(800, 8000)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = InMemoryPackListRepository();
+    final list = repository.lists.firstWhere(
+      (list) => list.items.any((item) => item.id == 'pack'),
+    );
+    // 加一個沒放進容器的項目,才會出現「未放入」分頁
+    repository.upsertItems(list.id, [
+      list.items
+          .singleWhere((item) => item.id == 'water-bottle')
+          .copyWith(id: 'loose-map', name: '紙本地圖', containerItemId: null),
+    ]);
+    await tester.pumpWidget(PackPlanApp(repository: repository));
+    await tester.tap(find.text(list.title).last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('查看 主背包 45L 內容物'));
-    await tester.pumpAndSettle();
+    Finder tab(String key) => find.byKey(ValueKey('placement-tab-$key'));
+    Finder tile(String id) =>
+        find.byKey(ValueKey('checklist-tile-$id'), skipOffstage: false);
 
-    expect(find.text('主背包 45L 內容物'), findsOneWidget);
-    expect(find.text('內容物 7 項 · 2.9${nbsp}kg'), findsOneWidget);
-    expect(find.text('能量棒 x6'), findsOneWidget);
+    // 全部:兩個項目都在,清單不再逐項標示「放在」
+    expect(tile('loose-map'), findsOneWidget);
+    expect(tile('energy-bar'), findsOneWidget);
+    expect(find.textContaining('放在：'), findsNothing);
+
+    await tester.tap(tab('pack'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('本體 1.2${nbsp}kg · 內容物 2.9${nbsp}kg · 合計 4.1${nbsp}kg · 7 項'),
+      findsOneWidget,
+    );
+    expect(tile('energy-bar'), findsOneWidget);
+    expect(tile('pack'), findsOneWidget, reason: '容器本身也列在自己的分頁');
+    expect(tile('loose-map'), findsNothing);
+    // 篩選時不能拖曳排序
+    expect(find.byIcon(Icons.drag_handle), findsNothing);
+
+    await tester.tap(tab('__unassigned__'));
+    await tester.pumpAndSettle();
+    expect(tile('loose-map'), findsOneWidget);
+    expect(tile('energy-bar'), findsNothing);
+
+    await tester.tap(tab('all'));
+    await tester.pumpAndSettle();
+    expect(tile('energy-bar'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_handle), findsWidgets);
   });
 
   testWidgets('Share action opens the native system share channel', (
