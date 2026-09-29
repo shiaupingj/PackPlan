@@ -32,17 +32,23 @@ abstract final class AppTypography {
   );
 
   /// 套進 ThemeData 的 TextTheme（依模式帶入主要/次要文字色）。
+  /// Material 元件會用到的欄位都要帶顏色：沒定義的欄位只剩字級、沒有顏色，
+  /// 會被畫成預設白字（例如對話框標題預設用 headlineSmall）。
   static TextTheme textTheme({
     required Color primary,
     required Color secondary,
   }) => TextTheme(
     displayLarge: _heading(48, primary),
     headlineMedium: _heading(34, primary), // H1
+    headlineSmall: _heading(24, primary),
     titleLarge: _heading(22, primary), // H2
     titleMedium: _body(17, primary, weight: FontWeight.w500),
+    titleSmall: _body(15, primary, weight: FontWeight.w500),
     bodyLarge: _body(16, primary),
     bodyMedium: _body(15, primary),
     bodySmall: _body(13, secondary), // caption
     labelLarge: _body(15, primary, weight: FontWeight.w500), // 按鈕文字
+    labelMedium: _body(13, primary, weight: FontWeight.w500),
+    labelSmall: _body(11, secondary, weight: FontWeight.w500),
   );
 }

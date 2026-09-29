@@ -37,11 +37,13 @@ abstract final class AppTheme {
       extensions: [p],
     );
 
+    final textTheme = AppTypography.textTheme(
+      primary: p.textPrimary,
+      secondary: p.textSecondary,
+    );
+
     return base.copyWith(
-      textTheme: AppTypography.textTheme(
-        primary: p.textPrimary,
-        secondary: p.textSecondary,
-      ),
+      textTheme: textTheme,
       dividerColor: p.border,
       cardTheme: CardThemeData(
         color: p.surface,
@@ -55,6 +57,7 @@ abstract final class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.titleLarge, // H2
         shape: RoundedRectangleBorder(
           side: BorderSide(color: p.border, width: 0.8),
           borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),

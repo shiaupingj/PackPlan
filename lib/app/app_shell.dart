@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'app_scope.dart';
+import '../widgets/app_dialog_title.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -64,7 +65,8 @@ class _AppShellState extends State<AppShell> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('操作說明'),
+          titlePadding: AppDialogTitle.padding,
+          title: const AppDialogTitle('操作說明'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

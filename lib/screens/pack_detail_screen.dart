@@ -20,6 +20,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weight_bar.dart';
+import '../widgets/app_dialog_title.dart';
 
 class PackDetailScreen extends StatefulWidget {
   const PackDetailScreen({super.key, required this.listId});
@@ -337,7 +338,8 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('重新命名清單'),
+          titlePadding: AppDialogTitle.padding,
+          title: const AppDialogTitle('重新命名清單'),
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(labelText: '清單名稱'),
@@ -549,7 +551,8 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(hasContents ? '行李內仍有項目' : '刪除項目？'),
+          titlePadding: AppDialogTitle.padding,
+          title: AppDialogTitle(hasContents ? '行李內仍有項目' : '刪除項目？'),
           content: Text(
             hasContents
                 ? '「${item.name}」內有 $contentCount 個項目，確定要刪除嗎？'
@@ -969,7 +972,8 @@ class _ContainerSummaryRow extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('$name 內容物'),
+          titlePadding: AppDialogTitle.padding,
+          title: AppDialogTitle('$name 內容物'),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -1309,7 +1313,8 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return AlertDialog(
-      title: const Text('旅程設定'),
+      titlePadding: AppDialogTitle.padding,
+      title: const AppDialogTitle('旅程設定'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1426,7 +1431,8 @@ class _CategoryRenameDialogState extends State<_CategoryRenameDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('重新命名分類'),
+      titlePadding: AppDialogTitle.padding,
+      title: const AppDialogTitle('重新命名分類'),
       content: TextField(
         controller: _controller,
         autofocus: true,
@@ -1463,7 +1469,8 @@ class _CategoryOrderDialogState extends State<_CategoryOrderDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('分類排序'),
+      titlePadding: AppDialogTitle.padding,
+      title: const AppDialogTitle('分類排序'),
       content: SizedBox(
         width: double.maxFinite,
         height: 360,
@@ -1613,7 +1620,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final selectedCategory = _normalizedCategory(_categoryController.text);
 
     return AlertDialog(
-      title: Text(widget.item == null ? '新增項目' : '編輯項目'),
+      titlePadding: AppDialogTitle.padding,
+      title: AppDialogTitle(widget.item == null ? '新增項目' : '編輯項目'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1908,12 +1916,19 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       return;
     }
 
+    // 目前重量欄仍是某筆參考值時,在選單中標示為已選。
+    final current = _currentReference;
     final picked = await showWeightReferencePicker(
       context,
       generic: generic,
       variants: variants,
       references: references,
       unit: unit,
+      selectedKey:
+          current != null &&
+              _weightController.text.trim() == '${current.weightGram}'
+          ? current.key
+          : null,
     );
     if (picked == null || !mounted) return;
     setState(() {

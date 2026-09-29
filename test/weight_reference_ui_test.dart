@@ -209,6 +209,41 @@ void main() {
     expect(pack.catalogKey, 'osprey-exos-58');
   });
 
+  testWidgets('再次開啟選單時,標示目前採用的型號', (tester) async {
+    await openList(tester);
+
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    // 還沒採用任何參考值
+    expect(
+      find.byKey(const ValueKey('weight-reference-selected')),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
+    );
+    await tester.pumpAndSettle();
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+
+    final selected = find.byKey(const ValueKey('weight-reference-selected'));
+    expect(selected, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
+        matching: selected,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('通用項目沒有線上資料時,仍可用範本 key 選型號', (tester) async {
     await openList(tester);
 
