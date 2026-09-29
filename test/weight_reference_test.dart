@@ -329,6 +329,46 @@ void main() {
       expect(keys('  '), isEmpty);
     });
 
+    test('search:英數字從單字開頭比對,中文任何位置都算', () async {
+      source
+        ..version = DateTime.utc(2026, 9, 20)
+        ..rows = [
+          _weight('hydration-bladder', name: '水袋'),
+          _weight(
+            'hydrapak-seeker-3l',
+            name: 'HydraPak Seeker 3L',
+            parentKey: 'hydration-bladder',
+            brand: 'HydraPak',
+          ),
+          _weight(
+            'gregory-paragon-48',
+            name: 'Gregory Paragon 48',
+            brand: 'Gregory',
+          ),
+          _weight(
+            'snowpeak-gst-120r',
+            name: 'Snow Peak GP鈦金屬超輕量迷你瓦斯爐 GST-120R',
+            brand: 'Snow Peak',
+          ),
+        ];
+      await repository.sync();
+
+      List<String> keys(String q) => [
+        for (final hit in repository.search(q)) hit.key,
+      ];
+
+      // 「p」只找單字開頭是 p 的,不會找到 HydraPak(p 在字中間)
+      expect(keys('p'), ['gregory-paragon-48', 'snowpeak-gst-120r']);
+      expect(keys('hydra'), ['hydrapak-seeker-3l']);
+      expect(keys('seeker 3l'), ['hydrapak-seeker-3l']);
+      // 符號後也算單字開頭;中文字接英數也算
+      expect(keys('120r'), ['snowpeak-gst-120r']);
+      expect(keys('gst-120r'), ['snowpeak-gst-120r']);
+      expect(keys('瓦斯爐'), ['snowpeak-gst-120r']);
+      // 中文任何位置都算(所屬通用項目名稱也搜得到)
+      expect(keys('袋'), ['hydration-bladder', 'hydrapak-seeker-3l']);
+    });
+
     test('同名時通用項目優先於型號', () async {
       source
         ..version = DateTime.utc(2026, 9, 20)

@@ -171,8 +171,9 @@ class WeightReferenceRepository extends ChangeNotifier {
   }
 
   /// 關鍵字搜尋全部有效資料:以空白分隔的每個詞都要出現在
-  /// 名稱、品牌、別名或所屬通用項目名稱中。名稱完全相符 > 開頭相符 > 其他,
-  /// 同分時通用項目在前、再依品牌與名稱排序。
+  /// 名稱、品牌、別名或所屬通用項目名稱中。英數字要從單字開頭比對
+  /// (打「p」不會找到 HydraPak),中文任何位置都算;可跨空白(「exos58」找得到「Exos 58」)。
+  /// 名稱完全相符 > 開頭相符 > 其他,同分時通用項目在前、再依品牌與名稱排序。
   List<GearWeight> search(String query, {int limit = 50}) {
     final terms = query
         .split(RegExp(r'\s+'))
@@ -195,10 +196,15 @@ class WeightReferenceRepository extends ChangeNotifier {
       final parentName = entry.parentKey == null
           ? ''
           : lookup(entry.parentKey!)?.nameZh ?? '';
-      final haystack = normalizeName(
-        [entry.nameZh, entry.brand ?? '', ...entry.aliases, parentName].join(),
-      );
-      if (terms.every(haystack.contains)) hits.add((rank(entry), entry));
+      final fields = [
+        entry.nameZh,
+        entry.brand ?? '',
+        ...entry.aliases,
+        parentName,
+      ].map(_SearchField.new).toList();
+      if (terms.every((term) => fields.any((f) => f.matches(term)))) {
+        hits.add((rank(entry), entry));
+      }
     }
     hits.sort((a, b) {
       if (a.$1 != b.$1) return a.$1.compareTo(b.$1);
@@ -251,4 +257,33 @@ class WeightReferenceRepository extends ChangeNotifier {
 
   static DateTime? _parseDate(Object? value) =>
       value is String ? DateTime.tryParse(value) : null;
+}
+
+/// 搜尋用的欄位:去掉空白後的文字,並記下每個「單字開頭」的位置。
+/// 英數字只有接在開頭、空白或符號後才算單字開頭;中文等其他字元每個字都算。
+class _SearchField {
+  _SearchField(String text) {
+    final buffer = StringBuffer();
+    var previous = '';
+    for (final char in text.toLowerCase().split('')) {
+      if (char.trim().isEmpty) {
+        previous = ' ';
+        continue;
+      }
+      final isWordChar = _wordChar.hasMatch(char);
+      if (!isWordChar || previous.isEmpty || !_wordChar.hasMatch(previous)) {
+        _starts.add(buffer.length);
+      }
+      buffer.write(char);
+      previous = char;
+    }
+    _compact = buffer.toString();
+  }
+
+  static final _wordChar = RegExp(r'[a-z0-9]');
+  late final String _compact;
+  final _starts = <int>[];
+
+  bool matches(String term) =>
+      _starts.any((start) => _compact.startsWith(term, start));
 }
