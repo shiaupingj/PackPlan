@@ -289,6 +289,7 @@ abstract final class SeedData {
       items: [
         _TemplateItemSpec(id: 'sleeping-bag', name: '睡袋'),
         _TemplateItemSpec(id: 'sleeping-pad', name: '睡墊'),
+        _TemplateItemSpec(id: 'tent', name: '帳篷'),
       ],
     ),
     _TemplateItemGroup(
