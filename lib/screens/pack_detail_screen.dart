@@ -1830,23 +1830,22 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                 ),
               ],
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const ValueKey('item-editor-weight-reference'),
-                onPressed: _lookingUpReference ? null : _pickReference,
-                icon: _lookingUpReference
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('帶入參考值'),
-              ),
-            ),
-            if (_referenceHint(context) case final hint?)
-              Row(
-                children: [
+            // 「帶入參考值」右邊接著顯示目前的線上參考值(或查詢結果提示)。
+            Row(
+              children: [
+                TextButton.icon(
+                  key: const ValueKey('item-editor-weight-reference'),
+                  onPressed: _lookingUpReference ? null : _pickReference,
+                  icon: _lookingUpReference
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined, size: 18),
+                  label: const Text('帶入參考值'),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                if (_referenceHint(context) case final hint?) ...[
                   const Icon(
                     Icons.cloud_outlined,
                     key: ValueKey('item-editor-reference-icon'),
@@ -1854,23 +1853,26 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                     color: AppColors.primary,
                   ),
                   const SizedBox(width: AppSpacing.xs),
-                  Flexible(
+                  Expanded(
                     child: Text(
                       hint,
+                      key: const ValueKey('item-editor-reference-hint'),
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
                     ),
                   ),
-                ],
-              )
-            else if (_referenceNotice case final notice?)
-              Text(
-                notice,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.palette.textSecondary,
-                ),
-              ),
+                ] else if (_referenceNotice case final notice?)
+                  Expanded(
+                    child: Text(
+                      notice,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.md),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2125,6 +2127,10 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
           ? current.key
           : null,
       initialQuery: notFound ? name : null,
+      categoryId: _categoryController.text.trim().isEmpty
+          ? null
+          : _resolvedCategoryId(_categoryController.text),
+      categoryName: _categoryController.text.trim(),
     );
     if (picked == null || !mounted) return;
     setState(() {

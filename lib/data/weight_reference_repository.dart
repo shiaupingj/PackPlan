@@ -177,7 +177,9 @@ class WeightReferenceRepository extends ChangeNotifier {
   ///
   /// 單一個含中文的詞找不到時,從前面逐字縮短再找(至少留兩個字):
   /// 「保暖外套」→「暖外套」→「外套」,讓自己取的複合名稱也能找到相關資料。
-  List<GearWeight> search(String query, {int limit = 50}) {
+  ///
+  /// 有 [categoryId] 時只找該分類的資料(例如睡眠系統不會出現泡麵)。
+  List<GearWeight> search(String query, {int limit = 50, String? categoryId}) {
     final terms = query
         .split(RegExp(r'\s+'))
         .map(normalizeName)
@@ -185,14 +187,14 @@ class WeightReferenceRepository extends ChangeNotifier {
         .toList();
     if (terms.isEmpty) return const [];
 
-    final hits = _search(terms, normalizeName(query));
+    final hits = _search(terms, normalizeName(query), categoryId);
     if (hits.isNotEmpty || terms.length != 1 || !_cjk.hasMatch(terms.single)) {
       return hits.take(limit).toList();
     }
     final term = terms.single;
     for (var start = 1; term.length - start >= 2; start++) {
       final shorter = term.substring(start);
-      final relaxed = _search([shorter], shorter);
+      final relaxed = _search([shorter], shorter, categoryId);
       if (relaxed.isNotEmpty) return relaxed.take(limit).toList();
     }
     return const [];
@@ -200,7 +202,16 @@ class WeightReferenceRepository extends ChangeNotifier {
 
   static final _cjk = RegExp(r'[\u3400-\u9fff]');
 
-  List<GearWeight> _search(List<String> terms, String whole) {
+  /// 這個分類有沒有任何有效資料(自訂分類通常沒有)。
+  bool hasCategory(String categoryId) => _entries.values.any(
+    (entry) => entry.isActive && entry.categoryId == categoryId,
+  );
+
+  List<GearWeight> _search(
+    List<String> terms,
+    String whole,
+    String? categoryId,
+  ) {
     int rank(GearWeight entry) {
       final names = [entry.nameZh, ...entry.aliases].map(normalizeName);
       if (names.any((name) => name == whole)) return 0;
@@ -211,6 +222,7 @@ class WeightReferenceRepository extends ChangeNotifier {
     final hits = <(int, GearWeight)>[];
     for (final entry in _entries.values) {
       if (!entry.isActive) continue;
+      if (categoryId != null && entry.categoryId != categoryId) continue;
       final parentName = entry.parentKey == null
           ? ''
           : lookup(entry.parentKey!)?.nameZh ?? '';

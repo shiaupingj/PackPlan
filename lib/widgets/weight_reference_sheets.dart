@@ -279,6 +279,8 @@ Future<GearWeight?> showWeightReferencePicker(
   required WeightUnit unit,
   String? selectedKey,
   String? initialQuery,
+  String? categoryId,
+  String? categoryName,
 }) {
   return showModalBottomSheet<GearWeight>(
     context: context,
@@ -291,6 +293,11 @@ Future<GearWeight?> showWeightReferencePicker(
       unit: unit,
       selectedKey: selectedKey,
       initialQuery: initialQuery ?? '',
+      // 自訂分類等沒有任何參考資料的分類,直接搜全部。
+      categoryId: categoryId != null && references.hasCategory(categoryId)
+          ? categoryId
+          : null,
+      categoryName: categoryName,
     ),
   );
 }
@@ -303,6 +310,8 @@ class _WeightReferencePicker extends StatefulWidget {
     required this.unit,
     required this.selectedKey,
     required this.initialQuery,
+    required this.categoryId,
+    required this.categoryName,
   });
 
   final GearWeight? generic;
@@ -311,6 +320,10 @@ class _WeightReferencePicker extends StatefulWidget {
   final WeightUnit unit;
   final String? selectedKey;
   final String initialQuery;
+
+  /// 搜尋預設只找這個分類;null 表示沒有可限定的分類。
+  final String? categoryId;
+  final String? categoryName;
 
   @override
   State<_WeightReferencePicker> createState() => _WeightReferencePickerState();
@@ -322,6 +335,11 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
   );
 
   String get _query => _queryController.text.trim();
+
+  /// 搜尋範圍:預設限定項目所在分類,可切到全部分類。
+  late bool _allCategories = widget.categoryId == null;
+
+  String? get _scope => _allCategories ? null : widget.categoryId;
 
   @override
   void dispose() {
@@ -416,20 +434,61 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
     ];
   }
 
+  /// 搜尋範圍切換:「<分類>」/「全部分類」。
+  Widget _scopeChips() {
+    Widget chip(String label, bool all) {
+      final selected = _allCategories == all;
+      return ChoiceChip(
+        key: ValueKey('weight-reference-scope-${all ? 'all' : 'category'}'),
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppColors.primary,
+        labelStyle: TextStyle(
+          color: selected ? AppColors.ink : context.palette.textPrimary,
+        ),
+        side: BorderSide(
+          color: selected ? AppColors.primary : context.palette.border,
+        ),
+        onSelected: (_) => setState(() => _allCategories = all),
+      );
+    }
+
+    return _inset(
+      Wrap(
+        spacing: AppSpacing.sm,
+        children: [
+          chip(widget.categoryName ?? '此分類', false),
+          chip('全部分類', true),
+        ],
+      ),
+    );
+  }
+
   List<Widget> _searchChildren() {
-    final results = widget.references.search(_query);
+    final results = widget.references.search(_query, categoryId: _scope);
     if (results.isEmpty) {
+      final t = Theme.of(context).textTheme;
       return [
         const SizedBox(height: AppSpacing.md),
         _inset(
           Text(
-            '找不到「$_query」，試試品牌、型號或其他名稱',
+            _scope == null
+                ? '找不到「$_query」，試試品牌、型號或其他名稱'
+                : '「${widget.categoryName}」找不到「$_query」',
             key: const ValueKey('weight-reference-search-empty'),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: context.palette.textSecondary,
-            ),
+            style: t.bodySmall?.copyWith(color: context.palette.textSecondary),
           ),
         ),
+        if (_scope != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: const ValueKey('weight-reference-search-all'),
+              onPressed: () => setState(() => _allCategories = true),
+              child: const Text('改搜全部分類'),
+            ),
+          ),
       ];
     }
     return [
@@ -485,6 +544,10 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
+              if (searching && widget.categoryId != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _scopeChips(),
+              ],
               ...(searching ? _searchChildren() : _browseChildren()),
               const SizedBox(height: AppSpacing.md),
               _inset(

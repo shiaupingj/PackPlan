@@ -23,6 +23,7 @@ GearWeight _weight(
   List<String> aliases = const [],
   bool isActive = true,
   DateTime? updatedAt,
+  String? categoryId,
 }) => GearWeight(
   key: key,
   nameZh: name ?? key,
@@ -32,6 +33,7 @@ GearWeight _weight(
   aliases: aliases,
   isActive: isActive,
   updatedAt: updatedAt ?? DateTime.utc(2026, 9, 1),
+  categoryId: categoryId,
 );
 
 PackItem _item(String name, {String? catalogKey}) => PackItem(
@@ -398,6 +400,37 @@ void main() {
       expect(keys('xjacket'), isEmpty);
       // 自動比對仍要完全相符,不會把「保暖外套」自動帶成外套
       expect(repository.matchItem(_item('保暖外套')), isNull);
+    });
+
+    test('search:指定分類時只找該分類', () async {
+      source
+        ..version = DateTime.utc(2026, 9, 20)
+        ..rows = [
+          _weight('sleeping-pad', name: '睡墊', categoryId: 'sleep'),
+          _weight(
+            'egg-crate-foam-pad',
+            name: '蛋殼睡墊',
+            parentKey: 'sleeping-pad',
+            categoryId: 'sleep',
+          ),
+          _weight('instant-noodles', name: '泡麵', categoryId: 'food'),
+        ];
+      await repository.sync();
+
+      List<String> keys(String q, {String? categoryId}) => [
+        for (final hit in repository.search(q, categoryId: categoryId)) hit.key,
+      ];
+
+      expect(keys('泡麵', categoryId: 'sleep'), isEmpty);
+      expect(keys('泡麵'), ['instant-noodles']);
+      expect(keys('睡墊', categoryId: 'sleep'), [
+        'sleeping-pad',
+        'egg-crate-foam-pad',
+      ]);
+      // 縮短重搜也守分類
+      expect(keys('蛋殼睡墊', categoryId: 'food'), isEmpty);
+      expect(repository.hasCategory('sleep'), isTrue);
+      expect(repository.hasCategory('my-custom'), isFalse);
     });
 
     test('同名時通用項目優先於型號', () async {
