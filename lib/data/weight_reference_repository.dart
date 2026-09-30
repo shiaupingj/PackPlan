@@ -174,6 +174,9 @@ class WeightReferenceRepository extends ChangeNotifier {
   /// 名稱、品牌、別名或所屬通用項目名稱中。英數字要從單字開頭比對
   /// (打「p」不會找到 HydraPak),中文任何位置都算;可跨空白(「exos58」找得到「Exos 58」)。
   /// 名稱完全相符 > 開頭相符 > 其他,同分時通用項目在前、再依品牌與名稱排序。
+  ///
+  /// 單一個含中文的詞找不到時,從前面逐字縮短再找(至少留兩個字):
+  /// 「保暖外套」→「暖外套」→「外套」,讓自己取的複合名稱也能找到相關資料。
   List<GearWeight> search(String query, {int limit = 50}) {
     final terms = query
         .split(RegExp(r'\s+'))
@@ -181,8 +184,23 @@ class WeightReferenceRepository extends ChangeNotifier {
         .where((term) => term.isNotEmpty)
         .toList();
     if (terms.isEmpty) return const [];
-    final whole = normalizeName(query);
 
+    final hits = _search(terms, normalizeName(query));
+    if (hits.isNotEmpty || terms.length != 1 || !_cjk.hasMatch(terms.single)) {
+      return hits.take(limit).toList();
+    }
+    final term = terms.single;
+    for (var start = 1; term.length - start >= 2; start++) {
+      final shorter = term.substring(start);
+      final relaxed = _search([shorter], shorter);
+      if (relaxed.isNotEmpty) return relaxed.take(limit).toList();
+    }
+    return const [];
+  }
+
+  static final _cjk = RegExp(r'[\u3400-\u9fff]');
+
+  List<GearWeight> _search(List<String> terms, String whole) {
     int rank(GearWeight entry) {
       final names = [entry.nameZh, ...entry.aliases].map(normalizeName);
       if (names.any((name) => name == whole)) return 0;
@@ -212,7 +230,7 @@ class WeightReferenceRepository extends ChangeNotifier {
       final byBrand = (a.$2.brand ?? '').compareTo(b.$2.brand ?? '');
       return byBrand != 0 ? byBrand : a.$2.nameZh.compareTo(b.$2.nameZh);
     });
-    return [for (final hit in hits.take(limit)) hit.$2];
+    return [for (final hit in hits) hit.$2];
   }
 
   /// 比對用:轉小寫並去掉所有空白,「Exos 58」與「exos58」視為相同。

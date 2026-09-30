@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../screens/home_screen.dart';
@@ -154,10 +156,15 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    // 有 Home 指示條時往下貼近它(安全區減 12);沒有時離底 12。
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
     return SafeArea(
       top: false,
+      bottom: false,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        padding: EdgeInsets.only(
+          bottom: math.max(safeBottom - AppSpacing.md, AppSpacing.md),
+        ),
         // heightFactor: 1.0 → 高度只包住膠囊，避免在 bottomNavigationBar
         // 版位垂直撐滿而把內文區壓扁；水平置中不寫死寬度。
         child: Align(
@@ -167,12 +174,19 @@ class _FloatingNavBar extends StatelessWidget {
             decoration: ShapeDecoration(
               color: palette.surface,
               shape: const StadiumBorder(),
-              shadows: const [
-                BoxShadow(
+              shadows: [
+                const BoxShadow(
                   color: Color(0x2E000000), // 黑 18%
                   blurRadius: 18,
                   offset: Offset(0, 6),
                 ),
+                // 深色模式膠囊與卡片同色,加一圈深色外光暈才分得出來。
+                if (palette.brightness == Brightness.dark)
+                  const BoxShadow(
+                    color: Color(0xCC000000), // 黑 80%
+                    blurRadius: 16,
+                    spreadRadius: 6,
+                  ),
               ],
             ),
             child: Padding(

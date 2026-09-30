@@ -52,7 +52,7 @@ class HomeScreen extends StatelessWidget {
                 child: PackListCard(
                   title: list.title,
                   subtitle: TripFormatters.summary(list),
-                  weightGram: list.baseWeightGram,
+                  weightGram: list.totalWeightGram,
                   weightUnit: settings.weightUnit,
                   progress: list.progress,
                   showWeight: list.showWeight,

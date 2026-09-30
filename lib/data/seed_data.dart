@@ -259,7 +259,7 @@ abstract final class SeedData {
             isContainer: spec.isContainer,
             containerItemId: spec.isContainer ? null : defaultContainerId,
             weightSource: WeightSource.unset,
-            catalogKey: spec.id,
+            catalogKey: spec.catalogKey ?? spec.id,
           ),
         );
         sortOrder += 1;
@@ -515,7 +515,11 @@ abstract final class SeedData {
           name: '褲子',
           necessity: ItemNecessity.required,
         ),
-        _TemplateItemSpec(id: 'city-jacket', name: '外套'),
+        _TemplateItemSpec(
+          id: 'city-jacket',
+          name: '外套',
+          catalogKey: 'warm-jacket',
+        ),
         _TemplateItemSpec(
           id: 'underwear',
           name: '內衣褲',
@@ -617,10 +621,15 @@ class _TemplateItemSpec {
     this.necessity = ItemNecessity.optional,
     this.weightClass = WeightClass.packed,
     this.isContainer = false,
+    this.catalogKey,
   });
 
   final String id;
   final String name;
+
+  /// 對應線上參考重量的 key;null 時用 [id]。
+  /// 例:城市旅遊的「外套」借用登山的保暖外套資料。
+  final String? catalogKey;
   final int quantity;
   final ItemNecessity necessity;
   final WeightClass weightClass;

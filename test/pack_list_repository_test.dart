@@ -74,6 +74,28 @@ void main() {
     expect(sleepingBag.id, isNot('sleeping-bag'));
   });
 
+  test('城市旅遊的「外套」借用保暖外套的線上參考重量', () {
+    final repository = InMemoryPackListRepository();
+    const template = PackTemplate(
+      id: 'city-travel',
+      name: '城市旅遊',
+      tripType: TripType.city,
+      proOnly: false,
+      description: '測試用',
+    );
+
+    final list = repository.createFromDraft(
+      CreatePackListDraft(
+        template: template,
+        days: 3,
+        weatherConditions: {WeatherCondition.sunny},
+      ),
+    );
+    final jacket = list.items.singleWhere((item) => item.name == '外套');
+
+    expect(jacket.catalogKey, 'warm-jacket');
+  });
+
   test('settings change default weight limit for new outdoor lists', () {
     final repository = InMemoryPackListRepository();
     repository.updateSettings(const UserSettings(defaultWeightLimitGram: 9000));

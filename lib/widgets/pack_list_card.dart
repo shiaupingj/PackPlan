@@ -6,7 +6,7 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'weight_text.dart';
 
-/// 首頁清單卡：標題 + 基重 + 進度條。
+/// 首頁清單卡：標題 + 進度條，下方一行左「進度」右「總重」。
 class PackListCard extends StatelessWidget {
   const PackListCard({
     super.key,
@@ -45,15 +45,6 @@ class PackListCard extends StatelessWidget {
               Text(title, style: t.titleLarge),
               const SizedBox(height: AppSpacing.xs),
               Text(subtitle, style: t.bodySmall),
-              const SizedBox(height: AppSpacing.sm),
-              if (showWeight) ...[
-                WeightText(
-                  gram: weightGram,
-                  unit: weightUnit,
-                  prefix: '基重 ',
-                  style: t.headlineMedium?.copyWith(fontSize: 15, height: 1.42),
-                ),
-              ],
               const SizedBox(height: AppSpacing.md),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
@@ -65,7 +56,19 @@ class PackListCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text('進度 ${(progress * 100).round()}%', style: t.bodySmall),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('進度 ${(progress * 100).round()}%', style: t.bodySmall),
+                  if (showWeight)
+                    WeightText(
+                      gram: weightGram,
+                      unit: weightUnit,
+                      prefix: '總重 ',
+                      style: t.bodySmall,
+                    ),
+                ],
+              ),
             ],
           ),
         ),

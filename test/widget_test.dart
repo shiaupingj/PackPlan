@@ -147,7 +147,7 @@ void main() {
     await tapVisible(tester, find.text('生成清單'));
 
     expect(find.text('登山計劃'), findsOneWidget);
-    expect(find.text('超輕量化打包'), findsOneWidget);
+    expect(find.text('超輕量化'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       tileWith('雨衣', '—${nbsp}g'),
@@ -191,7 +191,7 @@ void main() {
     await tester.tap(find.text('主頁'));
     await tester.pumpAndSettle();
 
-    expect(find.text('基重 4120${nbsp}g'), findsOneWidget);
+    expect(find.text('總重 4120${nbsp}g'), findsOneWidget);
   });
 
   testWidgets('Appearance control switches theme mode to light', (
@@ -699,8 +699,7 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(shirtTile);
-    await tester.pumpAndSettle();
+    await tapVisible(tester, shirtTile);
 
     await tapVisible(tester, find.text('計入背重'));
     await tapVisible(tester, find.text('不計入背重').last);
@@ -714,11 +713,11 @@ void main() {
     expect(shirt.containerItemId, isNull);
     expect(find.text('穿戴'), findsWidgets);
     await tester.scrollUntilVisible(
-      find.textContaining('/ 總重'),
+      find.textContaining(' 總重'),
       -300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining('/ 總重 3.6'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'/ 3\.6.* 總重$')), findsOneWidget);
     expect(find.textContaining('穿戴 540'), findsWidgets);
   });
 }

@@ -247,6 +247,13 @@ class _WeightFillSheetState extends State<_WeightFillSheet> {
                             for (final (item, weight) in selected)
                               WeightReferenceLabels.apply(item, weight),
                           ]),
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppRadius.dialogButton,
+                        ),
+                      ),
+                    ),
                     icon: const Icon(Icons.cloud_download_outlined),
                     label: Text('套用 ${selected.length} 項'),
                   ),

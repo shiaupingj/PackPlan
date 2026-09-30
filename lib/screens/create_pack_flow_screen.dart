@@ -8,6 +8,7 @@ import '../models/pack_template.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
+import '../widgets/template_card.dart';
 import 'pack_detail_screen.dart';
 
 class CreatePackFlowScreen extends StatefulWidget {
@@ -266,35 +267,19 @@ class _ItemSelectionStep extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.xs,
                                 ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 18,
-                                      child: selected
-                                          ? const Icon(
-                                              Icons.check,
-                                              size: 18,
-                                              color: AppColors.ink,
-                                            )
-                                          : null,
+                                // 選取只用顏色區分,不加勾。
+                                child: Center(
+                                  child: Text(
+                                    item.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: selected
+                                          ? AppColors.ink
+                                          : context.palette.textPrimary,
                                     ),
-                                    const SizedBox(width: AppSpacing.xs),
-                                    Expanded(
-                                      child: Text(
-                                        item.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: selected
-                                              ? AppColors.ink
-                                              : context.palette.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppSpacing.xs),
-                                    const SizedBox(width: 18),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -334,34 +319,14 @@ class _TemplateStep extends StatelessWidget {
           final active = selected?.id == template.id;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: Card(
-              color: active ? AppColors.primary : context.palette.surface,
-              child: ListTile(
-                enabled: !locked,
-                onTap: locked ? null : () => onSelected(template),
-                title: Text(
-                  template.name,
-                  style: t.titleMedium?.copyWith(
-                    color: active ? AppColors.ink : context.palette.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  locked
-                      ? '${template.description} Pro 範本稍後開放。'
-                      : template.description,
-                  style: TextStyle(
-                    color: active
-                        ? AppColors.orange900
-                        : context.palette.textSecondary,
-                  ),
-                ),
-                trailing: locked
-                    ? const Icon(Icons.lock_outline)
-                    : Icon(
-                        active ? Icons.check_circle : Icons.chevron_right,
-                        color: active ? AppColors.ink : AppColors.primary,
-                      ),
-              ),
+            child: TemplateCard(
+              name: template.name,
+              description: locked
+                  ? '${template.description} Pro 範本稍後開放。'
+                  : template.description,
+              locked: locked,
+              selected: active,
+              onTap: locked ? null : () => onSelected(template),
             ),
           );
         }),
@@ -441,8 +406,7 @@ class _TripSettingsStep extends StatelessWidget {
             final selected = weatherConditions.contains(value);
             return FilterChip(
               selected: selected,
-              showCheckmark: true,
-              checkmarkColor: AppColors.ink,
+              showCheckmark: false,
               selectedColor: AppColors.primary,
               backgroundColor: context.palette.surface,
               side: BorderSide(
@@ -553,6 +517,9 @@ class PrimaryActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 高度與 PrimaryButton(如「建立新清單」)一致:同樣的上下留白與字級。
+    const padding = EdgeInsets.symmetric(vertical: AppSpacing.lg);
+    final textStyle = Theme.of(context).textTheme.labelLarge;
     return Row(
       children: [
         if (secondaryLabel != null) ...[
@@ -563,6 +530,8 @@ class PrimaryActionRow extends StatelessWidget {
                 backgroundColor: context.palette.surface,
                 foregroundColor: context.palette.textPrimary,
                 side: BorderSide(color: context.palette.border, width: 0.8),
+                padding: padding,
+                textStyle: textStyle,
               ),
               child: Text(secondaryLabel!),
             ),
@@ -571,7 +540,14 @@ class PrimaryActionRow extends StatelessWidget {
         ],
         Expanded(
           flex: 2,
-          child: FilledButton(onPressed: onPrimary, child: Text(primaryLabel)),
+          child: FilledButton(
+            onPressed: onPrimary,
+            style: FilledButton.styleFrom(
+              padding: padding,
+              textStyle: textStyle,
+            ),
+            child: Text(primaryLabel),
+          ),
         ),
       ],
     );

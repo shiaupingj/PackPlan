@@ -7,6 +7,8 @@ import 'package:packplan/data/weight_reference_repository.dart';
 import 'package:packplan/models/gear_weight.dart';
 import 'package:packplan/models/pack_item.dart';
 import 'package:packplan/services/weight_reference_source.dart';
+import 'package:packplan/theme/app_colors.dart';
+import 'package:packplan/theme/app_dimens.dart';
 
 class _FakeSource implements WeightReferenceSource {
   _FakeSource(this.rows);
@@ -145,8 +147,30 @@ void main() {
     expect(find.text('查無參考資料（1）'), findsOneWidget);
     expect(find.textContaining('更新於 9/20'), findsOneWidget);
 
+    // 「套用」與對話框的「取消」同樣圓角
+    final applyShape =
+        tester
+                .widget<ButtonStyleButton>(
+                  find.byKey(const ValueKey('weight-fill-apply')),
+                )
+                .style
+                ?.shape
+                ?.resolve({})
+            as RoundedRectangleBorder?;
+    expect(
+      applyShape?.borderRadius,
+      BorderRadius.circular(AppRadius.dialogButton),
+    );
+
     await tester.tap(find.byKey(const ValueKey('weight-fill-apply')));
     await tester.pumpAndSettle();
+
+    // 訊息有關閉鈕,且即使有「復原」也會自動消失
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.showCloseIcon, isTrue);
+    expect(snackBar.persist, isFalse);
+    expect(snackBar.backgroundColor, AppColors.primary);
+    expect(snackBar.duration, lessThan(const Duration(seconds: 4)));
 
     final headlamp = itemById('headlamp');
     expect(headlamp.weightGram, 90);
@@ -206,7 +230,11 @@ void main() {
 
     expect(find.widgetWithText(TextField, 'Osprey Exos 58'), findsOneWidget);
     expect(find.widgetWithText(TextField, '1200'), findsOneWidget);
-    expect(find.textContaining('☁ 線上參考 1.2'), findsOneWidget);
+    expect(find.textContaining('線上參考 1.2'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('item-editor-reference-icon')),
+      findsOneWidget,
+    );
 
     await tapVisible(tester, find.widgetWithText(FilledButton, '儲存'));
 

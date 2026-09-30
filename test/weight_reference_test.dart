@@ -369,6 +369,37 @@ void main() {
       expect(keys('袋'), ['hydration-bladder', 'hydrapak-seeker-3l']);
     });
 
+    test('search:中文找不到時從前面逐字縮短(保暖外套→外套)', () async {
+      source
+        ..version = DateTime.utc(2026, 9, 20)
+        ..rows = [
+          _weight('warm-jacket', name: '外套'),
+          _weight(
+            'rab-mythic-g-jacket',
+            name: 'Rab Mythic G Jacket 男款',
+            parentKey: 'warm-jacket',
+            brand: 'Rab',
+          ),
+          _weight('raincoat', name: '雨衣'),
+        ];
+      await repository.sync();
+
+      List<String> keys(String q) => [
+        for (final hit in repository.search(q)) hit.key,
+      ];
+
+      // 整個詞找不到 → 縮短成「外套」,通用項目排第一、型號跟在後面
+      expect(keys('保暖外套'), ['warm-jacket', 'rab-mythic-g-jacket']);
+      expect(keys('防風保暖外套'), ['warm-jacket', 'rab-mythic-g-jacket']);
+      // 至少留兩個字,不會縮到只剩「套」
+      expect(keys('毛線套'), isEmpty);
+      // 多個關鍵字或英數字不放寬
+      expect(keys('rab 保暖外套'), isEmpty);
+      expect(keys('xjacket'), isEmpty);
+      // 自動比對仍要完全相符,不會把「保暖外套」自動帶成外套
+      expect(repository.matchItem(_item('保暖外套')), isNull);
+    });
+
     test('同名時通用項目優先於型號', () async {
       source
         ..version = DateTime.utc(2026, 9, 20)

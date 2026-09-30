@@ -84,7 +84,7 @@ void main() {
     expect(saved.containerItemId, isNull);
   });
 
-  testWidgets('總重卡片:「已打包 / 總重」固定一行', (tester) async {
+  testWidgets('總重卡片:「已打包 / 總重量 總重」固定一行', (tester) async {
     await tester.pumpWidget(
       PackPlanApp(repository: InMemoryPackListRepository()),
     );
@@ -93,7 +93,10 @@ void main() {
 
     final header = find.byKey(const ValueKey('weight-header-total'));
     expect(
-      find.descendant(of: header, matching: find.textContaining('/ 總重')),
+      find.descendant(
+        of: header,
+        matching: find.textContaining(RegExp(r' / .+ 總重$')),
+      ),
       findsOneWidget,
     );
     expect(find.textContaining('背包總重'), findsNothing);

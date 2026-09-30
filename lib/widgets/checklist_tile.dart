@@ -46,7 +46,7 @@ class ChecklistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      margin: const EdgeInsets.only(bottom: 2),
       decoration: BoxDecoration(
         color: dimmed ? context.palette.surfaceMuted : Colors.transparent,
         border: dimmed
@@ -58,9 +58,10 @@ class ChecklistTile extends StatelessWidget {
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(AppRadius.sm),
         child: Padding(
+          // 列高由 40pt 的勾選鈕撐開,上下只留 2pt,讓項目排得緊一點。
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.xs,
-            vertical: AppSpacing.sm,
+            vertical: 2,
           ),
           child: Row(
             children: [
@@ -73,6 +74,10 @@ class ChecklistTile extends StatelessWidget {
                 constraints: const BoxConstraints.tightFor(
                   width: 36,
                   height: 40,
+                ),
+                // 不要撐到 Material 預設的 48 點擊區,列高才會是 40。
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 icon: _circle(context),
               ),
