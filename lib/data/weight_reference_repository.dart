@@ -174,15 +174,44 @@ class WeightReferenceRepository extends ChangeNotifier {
   /// 名稱、品牌、別名或所屬通用項目名稱中。英數字要從單字開頭比對
   /// (打「p」不會找到 HydraPak),中文任何位置都算;可跨空白(「exos58」找得到「Exos 58」)。
   /// 名稱完全相符 > 開頭相符 > 其他,同分時通用項目在前、再依品牌與名稱排序。
-  List<GearWeight> search(String query, {int limit = 50}) {
+  ///
+  /// 單一個含中文的詞找不到時,從前面逐字縮短再找(至少留兩個字):
+  /// 「保暖外套」→「暖外套」→「外套」,讓自己取的複合名稱也能找到相關資料。
+  ///
+  /// 有 [categoryId] 時只找該分類的資料(例如睡眠系統不會出現泡麵)。
+  List<GearWeight> search(String query, {int limit = 50, String? categoryId}) {
     final terms = query
         .split(RegExp(r'\s+'))
         .map(normalizeName)
         .where((term) => term.isNotEmpty)
         .toList();
     if (terms.isEmpty) return const [];
-    final whole = normalizeName(query);
 
+    final hits = _search(terms, normalizeName(query), categoryId);
+    if (hits.isNotEmpty || terms.length != 1 || !_cjk.hasMatch(terms.single)) {
+      return hits.take(limit).toList();
+    }
+    final term = terms.single;
+    for (var start = 1; term.length - start >= 2; start++) {
+      final shorter = term.substring(start);
+      final relaxed = _search([shorter], shorter, categoryId);
+      if (relaxed.isNotEmpty) return relaxed.take(limit).toList();
+    }
+    return const [];
+  }
+
+  static final _cjk = RegExp(r'[\u3400-\u9fff]');
+
+  /// 這個分類有沒有任何有效資料(自訂分類通常沒有)。
+  bool hasCategory(String categoryId) => _entries.values.any(
+    (entry) => entry.isActive && entry.categoryId == categoryId,
+  );
+
+  List<GearWeight> _search(
+    List<String> terms,
+    String whole,
+    String? categoryId,
+  ) {
     int rank(GearWeight entry) {
       final names = [entry.nameZh, ...entry.aliases].map(normalizeName);
       if (names.any((name) => name == whole)) return 0;
@@ -193,6 +222,7 @@ class WeightReferenceRepository extends ChangeNotifier {
     final hits = <(int, GearWeight)>[];
     for (final entry in _entries.values) {
       if (!entry.isActive) continue;
+      if (categoryId != null && entry.categoryId != categoryId) continue;
       final parentName = entry.parentKey == null
           ? ''
           : lookup(entry.parentKey!)?.nameZh ?? '';
@@ -212,7 +242,7 @@ class WeightReferenceRepository extends ChangeNotifier {
       final byBrand = (a.$2.brand ?? '').compareTo(b.$2.brand ?? '');
       return byBrand != 0 ? byBrand : a.$2.nameZh.compareTo(b.$2.nameZh);
     });
-    return [for (final hit in hits.take(limit)) hit.$2];
+    return [for (final hit in hits) hit.$2];
   }
 
   /// 比對用:轉小寫並去掉所有空白,「Exos 58」與「exos58」視為相同。

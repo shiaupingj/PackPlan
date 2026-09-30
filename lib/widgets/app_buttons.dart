@@ -4,7 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 
-/// 主要 CTA：白底黑字，橘色 icon 呼應 action。
+/// 主要 CTA：白底黑字，icon 與文字同色。
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -44,7 +44,8 @@ class PrimaryButton extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 18, color: AppColors.primary),
+        // 不指定顏色:沿用按鈕的前景色(含停用狀態)。
+        Icon(icon, size: 18),
         const SizedBox(width: AppSpacing.sm),
         Text(label),
       ],

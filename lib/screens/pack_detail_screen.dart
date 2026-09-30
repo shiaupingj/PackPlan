@@ -91,6 +91,14 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final onlineWeightCount = list.items
         .where((item) => item.weightSource == WeightSource.online)
         .length;
+    final ulModeRow = _UlModeRow(
+      enabled: _ulMode,
+      minimumWeightGram: WeightCalculator.minimumViableWeightGram(list),
+      unit: settings.weightUnit,
+      suggestions: suggestions,
+      showWeight: list.showWeight,
+      onChanged: (value) => setState(() => _ulMode = value),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -122,26 +130,33 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: AppSpacing.md),
-          if (list.showWeight) ...[
+          if (list.showWeight)
             _WeightHeader(
               summary: summary,
               unit: settings.weightUnit,
               heaviestItem: WeightCalculator.heaviestItem(list),
               onlineWeightCount: onlineWeightCount,
+              footer: ulModeRow,
+            )
+          else
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: ulModeRow,
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          if (list.showWeight && missingWeightItems.isNotEmpty) ...[
+            _MissingWeightBanner(
+              count: missingWeightItems.length,
+              onFill: () => _fillMissingWeights(
+                context,
+                list.id,
+                missingWeightItems,
+                settings.weightUnit,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            if (missingWeightItems.isNotEmpty) ...[
-              _MissingWeightBanner(
-                count: missingWeightItems.length,
-                onFill: () => _fillMissingWeights(
-                  context,
-                  list.id,
-                  missingWeightItems,
-                  settings.weightUnit,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
           ],
           Row(
             children: [
@@ -180,15 +195,6 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             showWeight: list.showWeight,
             selected: placement,
             onSelected: (value) => setState(() => _placement = value),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _UlModePreview(
-            enabled: _ulMode,
-            minimumWeightGram: WeightCalculator.minimumViableWeightGram(list),
-            unit: settings.weightUnit,
-            suggestions: suggestions,
-            showWeight: list.showWeight,
-            onChanged: (value) => setState(() => _ulMode = value),
           ),
           const SizedBox(height: AppSpacing.md),
           ...visibleGroups.entries.map(
@@ -271,9 +277,19 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('已帶入 ${updated.length} 項參考重量'),
+          content: Text(
+            '已帶入 ${updated.length} 項參考重量',
+            style: const TextStyle(color: AppColors.ink),
+          ),
+          backgroundColor: AppColors.primary,
+          showCloseIcon: true,
+          closeIconColor: AppColors.ink,
+          // 有「復原」時 Flutter 預設不會自動消失,這裡明確設成時間到就關。
+          persist: false,
+          duration: const Duration(milliseconds: 2500),
           action: SnackBarAction(
             label: '復原',
+            textColor: AppColors.ink,
             onPressed: () => repository.upsertItems(listId, originals),
           ),
         ),
@@ -666,12 +682,16 @@ class _WeightHeader extends StatelessWidget {
     required this.unit,
     required this.heaviestItem,
     required this.onlineWeightCount,
+    required this.footer,
   });
 
   final WeightSummary summary;
   final WeightUnit unit;
   final PackItem? heaviestItem;
   final int onlineWeightCount;
+
+  /// 卡片最下方分隔線以下的內容(超輕量化開關)。
+  final Widget footer;
 
   @override
   Widget build(BuildContext context) {
@@ -693,29 +713,43 @@ class _WeightHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.xs),
-            // 固定一行:數字變長或字級放大時縮小,不換行。
-            FittedBox(
-              key: const ValueKey('weight-header-total'),
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
-                '總重 ${WeightFormatters.gram(summary.totalGram, unit: unit)}',
-                style: t.headlineMedium,
-                maxLines: 1,
-              ),
+            // 總重固定一行(數字變長或字級放大時縮小,不換行),上限靠右。
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    key: const ValueKey('weight-header-total'),
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${WeightFormatters.gram(summary.packedGram, unit: unit)} / '
+                      '${WeightFormatters.gram(summary.totalGram, unit: unit)} 總重',
+                      style: t.headlineMedium,
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Padding(
+                  // 對齊大字的底線(headlineMedium 行高下方留白)。
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: Text(
+                    '上限 ${WeightFormatters.gram(summary.limitGram, unit: unit)}',
+                    key: const ValueKey('weight-header-limit'),
+                    style: t.bodySmall,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.xs),
-            if (summary.wornGram > 0)
+            if (summary.wornGram > 0) ...[
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 '穿戴 ${WeightFormatters.gram(summary.wornGram, unit: unit)}'
                 '（不計背重）',
                 style: t.bodySmall?.copyWith(color: AppColors.primary),
               ),
-            Text(
-              '上限 ${WeightFormatters.gram(summary.limitGram, unit: unit)}',
-              style: t.bodySmall,
-            ),
+            ],
             if (heaviestItem case final item?
                 when item.totalWeightGram > 0) ...[
               const SizedBox(height: AppSpacing.xs),
@@ -745,6 +779,10 @@ class _WeightHeader extends StatelessWidget {
               limitGram: summary.limitGram,
               unit: unit,
             ),
+            const SizedBox(height: AppSpacing.md),
+            Divider(height: 1, color: context.palette.border),
+            const SizedBox(height: AppSpacing.sm),
+            footer,
           ],
         ),
       ),
@@ -787,8 +825,10 @@ class _MissingWeightBanner extends StatelessWidget {
   }
 }
 
-class _UlModePreview extends StatelessWidget {
-  const _UlModePreview({
+/// 超輕量化開關:放在重量卡最下方一行,說明收進 (i)。
+/// 開啟後多一行「最低可行 · 可刪減 N 項 ›」,點開底部面板看建議。
+class _UlModeRow extends StatelessWidget {
+  const _UlModeRow({
     required this.enabled,
     required this.minimumWeightGram,
     required this.unit,
@@ -804,52 +844,104 @@ class _UlModePreview extends StatelessWidget {
   final bool showWeight;
   final ValueChanged<bool> onChanged;
 
+  String _gram(int gram) => WeightFormatters.gram(gram, unit: unit);
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final summary = [
+      if (showWeight) '最低可行 ${_gram(minimumWeightGram)}',
+      suggestions.isEmpty ? '沒有可刪減項目' : '可刪減 ${suggestions.length} 項',
+    ].join(' · ');
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Text('超輕量化', style: t.bodyMedium),
+            Tooltip(
+              message: '開啟後會標記可刪減項目並估算最低可行重量。',
+              triggerMode: TooltipTriggerMode.tap,
+              showDuration: const Duration(seconds: 4),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: context.palette.textTertiary,
+                ),
+              ),
+            ),
+            const Spacer(),
+            Switch(value: enabled, onChanged: onChanged),
+          ],
+        ),
+        if (enabled)
+          InkWell(
+            key: const ValueKey('ul-mode-summary'),
+            onTap: suggestions.isEmpty ? null : () => _showSuggestions(context),
+            borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      summary,
+                      style: t.bodySmall?.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                  if (suggestions.isNotEmpty)
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showSuggestions(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.lg + MediaQuery.paddingOf(sheetContext).bottom,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.auto_awesome,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text('超輕量化打包', style: t.titleMedium)),
-                Switch(value: enabled, onChanged: onChanged),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (!enabled)
-              Text('開啟後會標記可刪減項目並估算最低可行重量。', style: t.bodySmall)
-            else if (showWeight) ...[
-              Text(
-                '最低可行重量 ${WeightFormatters.gram(minimumWeightGram, unit: unit)}',
-                style: t.bodyMedium,
-              ),
-            ] else
-              Text('重量資訊已在旅程設定中隱藏。', style: t.bodySmall),
-            if (enabled && suggestions.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              ...suggestions.map(
-                (suggestion) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Text(
-                    '可刪減「${suggestion.itemName}」'
-                    '${showWeight ? '（${WeightFormatters.gram(suggestion.weightGram, unit: unit)}）' : ''}'
-                    '：${suggestion.reason}',
-                    style: t.bodySmall?.copyWith(color: AppColors.primary),
-                  ),
-                ),
-              ),
+            Text('可刪減項目', style: t.titleLarge),
+            if (showWeight) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text('最低可行重量 ${_gram(minimumWeightGram)}', style: t.bodySmall),
             ],
+            const SizedBox(height: AppSpacing.md),
+            for (final suggestion in suggestions)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(suggestion.itemName),
+                subtitle: Text(suggestion.reason),
+                trailing: showWeight
+                    ? Text(_gram(suggestion.weightGram), style: t.bodyMedium)
+                    : null,
+              ),
           ],
         ),
       ),
@@ -945,21 +1037,28 @@ class _ContainerSummarySection extends StatelessWidget {
             : '${contents.length} 項已放入';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('放置位置', style: t.titleMedium),
-            const SizedBox(height: AppSpacing.md),
-            SingleChildScrollView(
+    // 不是卡片:標題 + 底線分頁列(Figma「放置位置」)。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('放置位置', style: t.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: context.palette.border)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final (value, label, count) in tabs)
+                  for (final (i, (value, label, count)) in tabs.indexed)
                     Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.sm),
+                      padding: EdgeInsets.only(
+                        left: i == 0 ? 0 : AppSpacing.xl,
+                      ),
                       child: _PlacementTab(
                         key: ValueKey('placement-tab-${value ?? 'all'}'),
                         label: label,
@@ -971,19 +1070,20 @@ class _ContainerSummarySection extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              detail,
-              key: const ValueKey('placement-detail'),
-              style: t.bodySmall?.copyWith(color: detailColor),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          detail,
+          key: const ValueKey('placement-detail'),
+          style: t.bodySmall?.copyWith(color: detailColor),
+        ),
+      ],
     );
   }
 }
 
+/// 底線分頁:選中為主文字色 + 橘色底線,未選為次要文字色。
 class _PlacementTab extends StatelessWidget {
   const _PlacementTab({
     super.key,
@@ -1001,51 +1101,52 @@ class _PlacementTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final foreground = selected
-        ? AppColors.onPrimary
-        : context.palette.textPrimary;
-    return Material(
-      color: selected ? AppColors.primary : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: selected ? AppColors.primary : context.palette.border,
-        ),
-        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.lg)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 160),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.bodyMedium?.copyWith(
-                    color: foreground,
-                    fontWeight: selected ? FontWeight.w500 : null,
+    final palette = context.palette;
+    return InkWell(
+      onTap: onTap,
+      child: IntrinsicWidth(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodyMedium?.copyWith(
+                      color: selected
+                          ? AppColors.primary
+                          : palette.textSecondary,
+                      fontWeight: selected ? FontWeight.w500 : null,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                '$count',
-                style: t.bodySmall?.copyWith(
-                  color: selected
-                      ? AppColors.onPrimary
-                      : context.palette.textTertiary,
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  '($count)',
+                  style: t.bodySmall?.copyWith(color: palette.textTertiary),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              key: selected ? const ValueKey('placement-tab-indicator') : null,
+              height: 2,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.transparent,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(1),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1115,11 +1216,11 @@ class _CategorySection extends StatelessWidget {
                   ),
                   IconButton(
                     tooltip: '新增$name項目',
-                    icon: const Icon(Icons.add, color: AppColors.primary),
+                    icon: Icon(Icons.add, color: context.palette.textSecondary),
                     onPressed: () => onAddItem(name),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  const Icon(Icons.expand_less, color: AppColors.primary),
+                  Icon(Icons.expand_less, color: context.palette.textSecondary),
                 ],
               ),
             ),
@@ -1729,34 +1830,49 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                 ),
               ],
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const ValueKey('item-editor-weight-reference'),
-                onPressed: _lookingUpReference ? null : _pickReference,
-                icon: _lookingUpReference
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('帶入參考值'),
-              ),
-            ),
-            if (_referenceHint(context) case final hint?)
-              Text(
-                hint,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
-              )
-            else if (_referenceNotice case final notice?)
-              Text(
-                notice,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: context.palette.textSecondary,
+            // 「帶入參考值」右邊接著顯示目前的線上參考值(或查詢結果提示)。
+            Row(
+              children: [
+                TextButton.icon(
+                  key: const ValueKey('item-editor-weight-reference'),
+                  onPressed: _lookingUpReference ? null : _pickReference,
+                  icon: _lookingUpReference
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined, size: 18),
+                  label: const Text('帶入參考值'),
                 ),
-              ),
+                const SizedBox(width: AppSpacing.xs),
+                if (_referenceHint(context) case final hint?) ...[
+                  const Icon(
+                    Icons.cloud_outlined,
+                    key: ValueKey('item-editor-reference-icon'),
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      hint,
+                      key: const ValueKey('item-editor-reference-hint'),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ] else if (_referenceNotice case final notice?)
+                  Expanded(
+                    child: Text(
+                      notice,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.md),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1851,12 +1967,20 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
             backgroundColor: context.palette.surfaceElevated,
             foregroundColor: context.palette.textPrimary,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.dialogButton),
             ),
           ),
           child: const Text('取消'),
         ),
-        FilledButton(onPressed: _save, child: const Text('儲存')),
+        FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.dialogButton),
+            ),
+          ),
+          child: const Text('儲存'),
+        ),
       ],
     );
   }
@@ -1955,7 +2079,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final unit = AppScope.of(context).settings.weightUnit;
     final rangeText = WeightReferenceLabels.range(reference, unit);
     final range = rangeText.isNotEmpty ? '（範圍 $rangeText）' : '';
-    return '☁ 線上參考 '
+    return '線上參考 '
         '${WeightFormatters.gram(reference.weightGram, unit: unit)}$range';
   }
 
@@ -2003,6 +2127,10 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
           ? current.key
           : null,
       initialQuery: notFound ? name : null,
+      categoryId: _categoryController.text.trim().isEmpty
+          ? null
+          : _resolvedCategoryId(_categoryController.text),
+      categoryName: _categoryController.text.trim(),
     );
     if (picked == null || !mounted) return;
     setState(() {

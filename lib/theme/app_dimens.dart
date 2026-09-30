@@ -16,4 +16,7 @@ abstract final class AppRadius {
   static const double md = 3;
   static const double lg = 4; // 卡片
   static const double pill = 4; // CTA
+
+  /// 對話框與底部面板的動作按鈕(取消/儲存/套用)。
+  static const double dialogButton = 12;
 }

@@ -69,7 +69,9 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: AppColors.primary),
+        // 返回鍵與右上動作 icon 用 text-secondary(Figma App Bar)。
+        iconTheme: IconThemeData(color: p.textSecondary),
+        actionsIconTheme: IconThemeData(color: p.textSecondary),
         titleTextStyle: TextStyle(
           fontFamily: AppTypography.fontFamily,
           fontFamilyFallback: AppTypography.fontFamilyFallback,
@@ -110,6 +112,7 @@ abstract final class AppTheme {
           color: p.textPrimary,
         ),
         behavior: SnackBarBehavior.floating,
+        closeIconColor: p.textSecondary,
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(

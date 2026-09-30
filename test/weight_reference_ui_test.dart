@@ -7,6 +7,8 @@ import 'package:packplan/data/weight_reference_repository.dart';
 import 'package:packplan/models/gear_weight.dart';
 import 'package:packplan/models/pack_item.dart';
 import 'package:packplan/services/weight_reference_source.dart';
+import 'package:packplan/theme/app_colors.dart';
+import 'package:packplan/theme/app_dimens.dart';
 
 class _FakeSource implements WeightReferenceSource {
   _FakeSource(this.rows);
@@ -28,6 +30,7 @@ GearWeight _weight(
   int? max,
   String? parentKey,
   String? brand,
+  String? categoryId,
 }) => GearWeight(
   key: key,
   nameZh: name,
@@ -36,6 +39,7 @@ GearWeight _weight(
   weightMax: max,
   parentKey: parentKey,
   brand: brand,
+  categoryId: categoryId,
   updatedAt: DateTime.utc(2026, 9, 20),
 );
 
@@ -145,8 +149,30 @@ void main() {
     expect(find.text('查無參考資料（1）'), findsOneWidget);
     expect(find.textContaining('更新於 9/20'), findsOneWidget);
 
+    // 「套用」與對話框的「取消」同樣圓角
+    final applyShape =
+        tester
+                .widget<ButtonStyleButton>(
+                  find.byKey(const ValueKey('weight-fill-apply')),
+                )
+                .style
+                ?.shape
+                ?.resolve({})
+            as RoundedRectangleBorder?;
+    expect(
+      applyShape?.borderRadius,
+      BorderRadius.circular(AppRadius.dialogButton),
+    );
+
     await tester.tap(find.byKey(const ValueKey('weight-fill-apply')));
     await tester.pumpAndSettle();
+
+    // 訊息有關閉鈕,且即使有「復原」也會自動消失
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.showCloseIcon, isTrue);
+    expect(snackBar.persist, isFalse);
+    expect(snackBar.backgroundColor, AppColors.primary);
+    expect(snackBar.duration, lessThan(const Duration(seconds: 4)));
 
     final headlamp = itemById('headlamp');
     expect(headlamp.weightGram, 90);
@@ -206,7 +232,20 @@ void main() {
 
     expect(find.widgetWithText(TextField, 'Osprey Exos 58'), findsOneWidget);
     expect(find.widgetWithText(TextField, '1200'), findsOneWidget);
-    expect(find.textContaining('☁ 線上參考 1.2'), findsOneWidget);
+    expect(find.textContaining('線上參考 1.2'), findsOneWidget);
+    // 線上參考值放在「帶入參考值」同一行的右邊
+    final button = tester.getRect(
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    final hint = tester.getRect(
+      find.byKey(const ValueKey('item-editor-reference-hint')),
+    );
+    expect(hint.left, greaterThan(button.right));
+    expect(hint.center.dy, closeTo(button.center.dy, 4));
+    expect(
+      find.byKey(const ValueKey('item-editor-reference-icon')),
+      findsOneWidget,
+    );
 
     await tapVisible(tester, find.widgetWithText(FilledButton, '儲存'));
 
@@ -357,6 +396,65 @@ void main() {
 
     expect(find.text('通用值（大背包）'), findsNothing);
     expect(find.text('Osprey · 屬於「大背包」'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('搜尋預設只找項目所在分類,可切到全部分類', (tester) async {
+    references = WeightReferenceRepository(
+      source: _FakeSource([
+        _weight('large-backpack', '大背包', 1500, categoryId: 'backpack'),
+        _weight(
+          'osprey-exos-58',
+          'Osprey Exos 58',
+          1200,
+          parentKey: 'large-backpack',
+          brand: 'Osprey',
+          categoryId: 'backpack',
+        ),
+        _weight('instant-noodles', '泡麵', 122, categoryId: 'food'),
+      ]),
+      cacheStore: InMemoryWeightReferenceCacheStore(),
+    );
+    await openList(tester);
+
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      '泡麵',
+    );
+    await tester.pumpAndSettle();
+
+    // 大背包在「背包系統」,預設不會搜到食物
+    expect(
+      find.byKey(const ValueKey('weight-reference-instant-noodles')),
+      findsNothing,
+    );
+    expect(find.text('「背包系統」找不到「泡麵」'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('weight-reference-scope-all')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('weight-reference-instant-noodles')),
+      findsOneWidget,
+    );
+
+    // 切回分類:同分類的型號照樣搜得到
+    await tester.tap(
+      find.byKey(const ValueKey('weight-reference-scope-category')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      'exos',
+    );
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
       findsOneWidget,

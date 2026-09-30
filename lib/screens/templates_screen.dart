@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
 import '../models/pack_template.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
-import '../theme/app_palette.dart';
+import '../widgets/template_card.dart';
 import 'create_pack_flow_screen.dart';
 
 class TemplatesScreen extends StatelessWidget {
@@ -30,8 +29,10 @@ class TemplatesScreen extends StatelessWidget {
           ...repository.templates.map(
             (template) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: _TemplateCard(
-                template: template,
+              child: TemplateCard(
+                name: template.name,
+                description: template.description,
+                locked: template.proOnly,
                 onTap: () => _createFromTemplate(context, template),
               ),
             ),
@@ -52,45 +53,6 @@ class TemplatesScreen extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CreatePackFlowScreen(initialTemplate: template),
-      ),
-    );
-  }
-}
-
-class _TemplateCard extends StatelessWidget {
-  const _TemplateCard({required this.template, required this.onTap});
-
-  final PackTemplate template;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final active = !template.proOnly;
-
-    return Card(
-      color: active ? AppColors.primary : context.palette.surface,
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
-        title: Text(
-          template.name,
-          style: t.titleMedium?.copyWith(
-            color: active ? AppColors.ink : context.palette.textPrimary,
-          ),
-        ),
-        subtitle: Text(
-          template.description,
-          style: TextStyle(
-            color: active ? AppColors.orange900 : context.palette.textSecondary,
-          ),
-        ),
-        trailing: template.proOnly
-            ? Icon(Icons.lock_outline, color: context.palette.textSecondary)
-            : const Icon(Icons.chevron_right, color: AppColors.ink),
       ),
     );
   }
