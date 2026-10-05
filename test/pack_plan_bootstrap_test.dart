@@ -26,6 +26,11 @@ void main() {
     expect(find.text('無法讀取本機資料'), findsOneWidget);
     expect(find.text('重新嘗試'), findsOneWidget);
     expect(find.text('重建本機資料'), findsOneWidget);
+    // 實機 release 沒有 log:錯誤原因直接顯示在畫面上,方便截圖回報。
+    expect(
+      find.text('錯誤原因：FormatException: FormatException: corrupted payload'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('重新嘗試'));
     await tester.pumpAndSettle();

@@ -12,12 +12,25 @@ class CreatePackListDraft {
     required this.days,
     required this.weatherConditions,
     this.selectedItemKeys,
+    this.title,
   });
 
   final PackTemplate template;
+
+  /// 使用者在 Step 4 輸入的清單名稱;空白時用 [defaultPackListTitle]。
+  final String? title;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final Set<String>? selectedItemKeys;
+}
+
+/// 新清單的預設名稱(依旅程類型)。
+String defaultPackListTitle(TripType type) {
+  return switch (type) {
+    TripType.hiking => '登山計劃',
+    TripType.city => '城市旅遊',
+    TripType.camping => '露營計劃',
+  };
 }
 
 String packItemSelectionKey(PackItem item) => '${item.categoryId}:${item.name}';
@@ -136,7 +149,10 @@ class InMemoryPackListRepository extends ChangeNotifier
         : (draft.days - 1).clamp(0, 30).toInt();
     final list = PackList(
       id: id,
-      title: _titleFor(draft.template.tripType),
+      title: switch (draft.title?.trim()) {
+        final title? when title.isNotEmpty => title,
+        _ => defaultPackListTitle(draft.template.tripType),
+      },
       tripType: draft.template.tripType,
       days: draft.days,
       nights: nights,
@@ -430,14 +446,6 @@ class InMemoryPackListRepository extends ChangeNotifier
       updatedAt: DateTime.now(),
     );
     notifyListeners();
-  }
-
-  String _titleFor(TripType type) {
-    return switch (type) {
-      TripType.hiking => '登山計劃',
-      TripType.city => '城市旅遊',
-      TripType.camping => '露營計劃',
-    };
   }
 
   @override

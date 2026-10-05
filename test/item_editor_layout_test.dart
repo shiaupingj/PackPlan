@@ -49,16 +49,30 @@ void main() {
     expect(find.text('容器本身會計入重量，其他項目可放入此處'), findsNothing);
   });
 
-  testWidgets('長按 (i) 顯示容器說明', (tester) async {
+  testWidgets('點一下 (i) 就顯示容器說明,點擊範圍至少 36', (tester) async {
     await openNewItemEditor(tester);
 
     final info = find.byKey(const ValueKey('item-editor-container-info'));
     await tester.ensureVisible(info);
     await tester.pumpAndSettle();
-    await tester.longPress(info);
-    await tester.pumpAndSettle();
+    final size = tester.getSize(info);
+    expect(size.width, greaterThanOrEqualTo(36));
+    expect(size.height, greaterThanOrEqualTo(36));
+    await tester.tap(info);
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('設為背包/行李容器：容器本身會計入重量，其他項目可放入此處'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+  });
+
+  testWidgets('名稱欄位最多換到 2 行', (tester) async {
+    await openNewItemEditor(tester);
+
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('item-editor-name')),
+    );
+    expect(field.minLines, 1);
+    expect(field.maxLines, 2);
   });
 
   testWidgets('打開容器開關後,放置位置改為「本身為容器」且存成容器', (tester) async {

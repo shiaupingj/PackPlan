@@ -171,10 +171,18 @@ class BackupCodec {
       throw const BackupFormatException('清單的天氣設定無效');
     }
 
-    final items = _list(
-      json['items'],
-      '裝備項目',
-    ).map((entry) => _decodeItem(_map(entry, '裝備項目'))).toList();
+    // 舊版建立清單時曾把身上穿戴放進預設容器(存得進去、卻讀不回來)。
+    // 這種資料直接修正成「不放容器」,不讓整份本機資料或備份因此無法開啟。
+    final items = _list(json['items'], '裝備項目')
+        .map((entry) => _decodeItem(_map(entry, '裝備項目')))
+        .map(
+          (item) =>
+              item.weightClass == WeightClass.worn &&
+                  item.containerItemId != null
+              ? item.copyWith(containerItemId: null)
+              : item,
+        )
+        .toList();
     final itemIds = items.map((item) => item.id).toSet();
     if (itemIds.length != items.length) {
       throw const BackupFormatException('同一清單內含重複的裝備識別碼');

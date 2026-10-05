@@ -5,6 +5,7 @@ import '../models/gear_weight.dart';
 import '../models/pack_item.dart';
 import '../models/user_settings.dart';
 import '../services/formatters.dart';
+import '../services/support_mail.dart';
 import '../services/weight_reference_source.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
@@ -35,14 +36,6 @@ abstract final class WeightReferenceLabels {
     if (!name.toLowerCase().startsWith(brand.toLowerCase())) return name;
     final rest = name.substring(brand.length).trim();
     return rest.isEmpty ? name : rest;
-  }
-
-  static String source(WeightReferenceRepository references) {
-    final version = references.version?.toLocal();
-    final date = version == null
-        ? ''
-        : ' · 更新於 ${version.month}/${version.day}';
-    return '資料來源：PackPlan 線上重量庫$date';
   }
 
   /// 帶入參考重量後的項目:標記為線上資料並記下對應的資料 key。
@@ -232,13 +225,6 @@ class _WeightFillSheetState extends State<_WeightFillSheet> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Text(
-                    WeightReferenceLabels.source(references),
-                    style: t.bodySmall?.copyWith(
-                      color: context.palette.textTertiary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
                   FilledButton.icon(
                     key: const ValueKey('weight-fill-apply'),
                     onPressed: selected.isEmpty
@@ -341,6 +327,20 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
 
   String? get _scope => _allCategories ? null : widget.categoryId;
 
+  /// 開不了郵件 App 時顯示在回報按鈕下方(SnackBar 會被底部面板遮住)。
+  bool _reportFailed = false;
+
+  Future<void> _reportMissing() async {
+    final opened = await SupportMail.open(
+      SupportMail.missingWeightReference(
+        query: _query,
+        categoryName: widget.categoryName,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _reportFailed = !opened);
+  }
+
   @override
   void dispose() {
     _queryController.dispose();
@@ -434,8 +434,9 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
     ];
   }
 
-  /// 搜尋範圍切換:「<分類>」/「全部分類」。
-  Widget _scopeChips() {
+  /// 搜尋列下方一行:左邊範圍切換「<分類>」/「全部分類」(有分類時),
+  /// 找不到時右邊靠右放「回報找不到」(寄信)。
+  Widget _searchToolbar({required bool notFound}) {
     Widget chip(String label, bool all) {
       final selected = _allCategories == all;
       return ChoiceChip(
@@ -455,18 +456,37 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
     }
 
     return _inset(
-      Wrap(
-        spacing: AppSpacing.sm,
+      Row(
         children: [
-          chip(widget.categoryName ?? '此分類', false),
-          chip('全部分類', true),
+          if (widget.categoryId != null) ...[
+            chip(widget.categoryName ?? '此分類', false),
+            const SizedBox(width: AppSpacing.sm),
+            chip('全部分類', true),
+          ],
+          const SizedBox(width: AppSpacing.sm),
+          // 佔滿剩下寬度、靠右;窄螢幕放不下時整顆等比縮小,不換行、不溢出。
+          Expanded(
+            child: notFound
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: TextButton.icon(
+                        key: const ValueKey('weight-reference-report-missing'),
+                        onPressed: _reportMissing,
+                        icon: const Icon(Icons.mail_outline, size: 18),
+                        label: const Text('回報找不到'),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
   }
 
-  List<Widget> _searchChildren() {
-    final results = widget.references.search(_query, categoryId: _scope);
+  List<Widget> _searchChildren(List<GearWeight> results) {
     if (results.isEmpty) {
       final t = Theme.of(context).textTheme;
       return [
@@ -480,15 +500,18 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
             style: t.bodySmall?.copyWith(color: context.palette.textSecondary),
           ),
         ),
-        if (_scope != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              key: const ValueKey('weight-reference-search-all'),
-              onPressed: () => setState(() => _allCategories = true),
-              child: const Text('改搜全部分類'),
+        if (_reportFailed) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _inset(
+            Text(
+              '無法開啟郵件 App，請寄信到 ${SupportMail.address}',
+              key: const ValueKey('weight-reference-report-failed'),
+              style: t.bodySmall?.copyWith(
+                color: context.palette.textSecondary,
+              ),
             ),
           ),
+        ],
       ];
     }
     return [
@@ -502,6 +525,10 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final searching = _query.isNotEmpty;
+    final results = searching
+        ? widget.references.search(_query, categoryId: _scope)
+        : const <GearWeight>[];
+    final notFound = searching && results.isEmpty;
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -518,7 +545,22 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _inset(Text('帶入參考值', style: t.titleLarge)),
+              // 標題列右邊放關閉鈕(同對話框的 ×);關閉 = 不帶入。
+              Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Expanded(child: Text('帶入參考值', style: t.titleLarge)),
+                    IconButton(
+                      key: const ValueKey('weight-reference-close'),
+                      tooltip: '關閉',
+                      icon: const Icon(Icons.close),
+                      color: context.palette.textSecondary,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
               if (widget.variants.isNotEmpty || searching) ...[
                 const SizedBox(height: AppSpacing.xs),
                 _inset(Text('選品牌型號時，項目名稱會改成型號名。', style: t.bodySmall)),
@@ -533,10 +575,18 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
                   decoration: InputDecoration(
                     hintText: '搜尋品牌、型號或名稱',
                     prefixIcon: const Icon(Icons.search),
+                    // 灰色實心圓的清除鈕,和右上角的關閉 × 區分。
                     suffixIcon: searching
                         ? IconButton(
+                            key: const ValueKey(
+                              'weight-reference-search-clear',
+                            ),
                             tooltip: '清除搜尋',
-                            icon: const Icon(Icons.close),
+                            icon: Icon(
+                              Icons.cancel,
+                              size: 20,
+                              color: context.palette.textTertiary,
+                            ),
                             onPressed: () => setState(_queryController.clear),
                           )
                         : null,
@@ -544,20 +594,11 @@ class _WeightReferencePickerState extends State<_WeightReferencePicker> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              if (searching && widget.categoryId != null) ...[
+              if (searching && (widget.categoryId != null || notFound)) ...[
                 const SizedBox(height: AppSpacing.sm),
-                _scopeChips(),
+                _searchToolbar(notFound: notFound),
               ],
-              ...(searching ? _searchChildren() : _browseChildren()),
-              const SizedBox(height: AppSpacing.md),
-              _inset(
-                Text(
-                  WeightReferenceLabels.source(widget.references),
-                  style: t.bodySmall?.copyWith(
-                    color: context.palette.textTertiary,
-                  ),
-                ),
-              ),
+              ...(searching ? _searchChildren(results) : _browseChildren()),
             ],
           ),
         ),

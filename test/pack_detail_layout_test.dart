@@ -66,7 +66,7 @@ void main() {
     await openDetail(tester);
     final secondary = palette(tester).textSecondary;
 
-    for (final tooltip in ['重新命名', '旅程設定', '分享', '新增工具項目']) {
+    for (final tooltip in ['旅程設定', '更多', '新增工具項目']) {
       expect(
         iconColor(
           tester,
@@ -79,7 +79,7 @@ void main() {
         reason: tooltip,
       );
     }
-    expect(iconColor(tester, find.byIcon(Icons.expand_less).first), secondary);
+    expect(iconColor(tester, find.byIcon(Icons.expand_more).first), secondary);
   });
 
   testWidgets('超輕量化收在重量卡最下方,開啟後點摘要看可刪減項目', (tester) async {
@@ -209,5 +209,110 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Step 3 / 4'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsNothing, reason: '項目選項不打勾');
+  });
+
+  testWidgets('往下捲時,放置位置標題、分頁與說明固定在頂端', (tester) async {
+    tester.view
+      ..physicalSize = const Size(400, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+
+    final header = find.byKey(const ValueKey('placement-pinned-header'));
+    final appBarBottom = tester.getRect(find.byType(AppBar)).bottom;
+    final startTop = tester.getRect(header).top;
+    expect(startTop, greaterThan(appBarBottom + 100), reason: '一開始在重量卡下方');
+
+    final firstCategory = find.text('背包系統');
+    final categoryBefore = tester.getRect(firstCategory).top;
+    await tester.drag(
+      find.byKey(const ValueKey('pack-detail-scroll')),
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
+
+    final pinned = tester.getRect(header);
+    expect(pinned.top, closeTo(appBarBottom, 1), reason: '捲到頂後停在 App Bar 下');
+    for (final text in ['放置位置', '全部']) {
+      final rect = tester.getRect(find.text(text));
+      expect(rect.top, greaterThanOrEqualTo(pinned.top), reason: text);
+      expect(rect.bottom, lessThanOrEqualTo(pinned.bottom), reason: text);
+    }
+    expect(
+      find.descendant(of: header, matching: find.textContaining('點分頁')),
+      findsOneWidget,
+      reason: '分頁下方的說明/摘要也一起固定',
+    );
+    // 分類內容繼續往上捲(已捲出畫面或位置上移)。
+    final categoryAfter = firstCategory.evaluate().isEmpty
+        ? double.negativeInfinity
+        : tester.getRect(firstCategory).top;
+    expect(categoryAfter, lessThan(categoryBefore));
+  });
+
+  testWidgets('固定在頂端時切換分頁,仍維持固定並從新分頁開頭顯示', (tester) async {
+    tester.view
+      ..physicalSize = const Size(400, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+
+    final header = find.byKey(const ValueKey('placement-pinned-header'));
+    final appBarBottom = tester.getRect(find.byType(AppBar)).bottom;
+    await tester.drag(
+      find.byKey(const ValueKey('pack-detail-scroll')),
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getRect(header).top, closeTo(appBarBottom, 1));
+
+    await tester.tap(find.byKey(const ValueKey('placement-tab-pack')));
+    await tester.pumpAndSettle();
+
+    final pinned = tester.getRect(header);
+    expect(pinned.top, closeTo(appBarBottom, 1), reason: '沒有跳回頁面最上方');
+    expect(
+      find.descendant(of: header, matching: find.textContaining('本體')),
+      findsOneWidget,
+    );
+    // 新分頁第一個分類緊接在固定區塊下方。
+    final firstCategory = tester.getRect(find.text('背包系統'));
+    expect(firstCategory.top, greaterThanOrEqualTo(pinned.bottom));
+    expect(firstCategory.top, lessThan(pinned.bottom + 40));
+
+    // 未固定時切換分頁不改捲動位置。
+    await tester.drag(
+      find.byKey(const ValueKey('pack-detail-scroll')),
+      const Offset(0, 3000),
+    );
+    await tester.pumpAndSettle();
+    final before = tester.getRect(header).top;
+    await tester.tap(find.byKey(const ValueKey('placement-tab-all')));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(header).top, before);
+  });
+
+  testWidgets('分類卡箭頭:展開時 v、收合時 ^', (tester) async {
+    await openDetail(tester);
+
+    final toggle = find.byKey(const ValueKey('category-toggle-背包系統'));
+    expect(tester.widget<Icon>(toggle).icon, Icons.expand_more);
+    expect(find.text('主背包 45L'), findsWidgets);
+
+    await tester.tap(find.text('背包系統'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Icon>(toggle).icon, Icons.expand_less);
+
+    await tester.tap(find.text('背包系統'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Icon>(toggle).icon, Icons.expand_more);
   });
 }

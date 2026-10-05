@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
+import '../models/pack_list.dart';
 import '../services/trip_formatters.dart';
 import '../theme/app_dimens.dart';
 import '../widgets/app_buttons.dart';
+import '../widgets/app_dialog_title.dart';
+import '../widgets/delete_list_dialog.dart';
 import '../widgets/pack_list_card.dart';
 import 'create_pack_flow_screen.dart';
 import 'pack_detail_screen.dart';
-import '../widgets/app_dialog_title.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -16,7 +18,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = AppScope.of(context);
     final lists = repository.lists;
-    final settings = repository.settings;
     final t = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -46,27 +47,44 @@ class HomeScreen extends StatelessWidget {
           if (lists.isEmpty)
             _EmptyState(onCreate: () => _openCreateFlow(context))
           else
-            ...lists.map((list) {
-              return Padding(
+            // 2 欄排列;奇數時最後一列右邊留空。
+            for (var i = 0; i < lists.length; i += 2)
+              Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: PackListCard(
-                  title: list.title,
-                  subtitle: TripFormatters.summary(list),
-                  weightGram: list.totalWeightGram,
-                  weightUnit: settings.weightUnit,
-                  progress: list.progress,
-                  showWeight: list.showWeight,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => PackDetailScreen(listId: list.id),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildCard(context, lists[i])),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: i + 1 < lists.length
+                          ? _buildCard(context, lists[i + 1])
+                          : const SizedBox.shrink(),
                     ),
-                  ),
-                  onLongPress: () => _showListActions(context, list.id),
+                  ],
                 ),
-              );
-            }),
+              ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, PackList list) {
+    return PackListCard(
+      key: ValueKey('pack-list-${list.id}'),
+      title: list.title,
+      subtitle: TripFormatters.brief(list),
+      weightGram: list.totalWeightGram,
+      weightUnit: AppScope.of(context).settings.weightUnit,
+      progress: list.progress,
+      showWeight: list.showWeight,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PackDetailScreen(listId: list.id),
+        ),
+      ),
+      onLongPress: () => _showListActions(context, list),
+      onMore: () => _showListActions(context, list),
     );
   }
 
@@ -76,8 +94,16 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _showListActions(BuildContext context, String listId) {
+  void _deleteList(BuildContext context, String listId) {
+    AppScope.of(context).deleteList(listId);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('清單已刪除')));
+  }
+
+  void _showListActions(BuildContext context, PackList list) {
     final repository = AppScope.of(context);
+    final listId = list.id;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -129,13 +155,12 @@ class HomeScreen extends StatelessWidget {
                     Navigator.of(sheetContext).pop();
                     await _waitForSheetToClose();
                     if (!context.mounted) return;
-                    final confirmed = await _confirmDelete(context);
-                    if (!confirmed) return;
-                    repository.deleteList(listId);
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
+                    final confirmed = await confirmDeleteList(
                       context,
-                    ).showSnackBar(const SnackBar(content: Text('清單已刪除')));
+                      list.title,
+                    );
+                    if (!confirmed || !context.mounted) return;
+                    _deleteList(context, listId);
                   },
                 ),
                 ListTile(
@@ -194,30 +219,6 @@ class HomeScreen extends StatelessWidget {
     controller.dispose();
     if (!context.mounted || title == null || title.trim().isEmpty) return;
     repository.renameList(listId, title);
-  }
-
-  Future<bool> _confirmDelete(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          titlePadding: AppDialogTitle.padding,
-          title: const AppDialogTitle('刪除清單？'),
-          content: const Text('刪除後目前版本無法復原。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('刪除'),
-            ),
-          ],
-        );
-      },
-    );
-    return result ?? false;
   }
 }
 

@@ -17,4 +17,10 @@ void main() {
 
     expect(TripFormatters.summary(list), '登山 · 3天2夜 · 陰天');
   });
+
+  test('brief 只有類型與天數,不含天氣', () {
+    final list = SeedData.lists().first;
+
+    expect(TripFormatters.brief(list), '登山 · 3天2夜');
+  });
 }

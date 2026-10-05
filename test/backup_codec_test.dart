@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/models/pack_list.dart';
 import 'package:packplan/models/user_settings.dart';
 import 'package:packplan/services/backup_codec.dart';
 
@@ -248,5 +249,81 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('各範本建立的清單(含身上穿戴、天氣裝備)存檔後都讀得回來', () {
+    final repository = InMemoryPackListRepository();
+    for (final template in repository.templates.where((t) => !t.proOnly)) {
+      for (final weather in [
+        {WeatherCondition.sunny},
+        WeatherCondition.values.toSet(),
+      ]) {
+        final keys = repository
+            .previewItemsForDraft(
+              template: template,
+              days: 3,
+              weatherConditions: weather,
+            )
+            .map(packItemSelectionKey)
+            .toSet();
+        final list = repository.createFromDraft(
+          CreatePackListDraft(
+            template: template,
+            days: 3,
+            weatherConditions: weather,
+            selectedItemKeys: keys,
+          ),
+        );
+        final worn = list.items.where(
+          (item) => item.weightClass == WeightClass.worn,
+        );
+        expect(worn, isNotEmpty, reason: template.id);
+        expect(
+          worn.every((item) => item.containerItemId == null),
+          isTrue,
+          reason: '${template.id}:身上穿戴不能放進容器',
+        );
+      }
+    }
+
+    final decoded = BackupCodec.decode(
+      BackupCodec.encode(
+        lists: repository.lists,
+        settings: repository.settings,
+      ),
+    );
+    expect(decoded.lists.length, repository.lists.length);
+  });
+
+  test('舊資料裡放在容器內的身上穿戴,讀取時自動移出容器而不是整份拒讀', () {
+    final repository = InMemoryPackListRepository();
+    final list = repository.lists.first;
+    final container = list.items.firstWhere((item) => item.isContainer);
+    final broken = list.copyWith(
+      items: [
+        ...list.items,
+        PackItem(
+          id: 'legacy-worn',
+          categoryId: 'worn',
+          categoryName: '身上穿戴',
+          name: '身上一套',
+          weightGram: 0,
+          quantity: 1,
+          checked: false,
+          necessity: ItemNecessity.optional,
+          sortOrder: 99,
+          weightClass: WeightClass.worn,
+          containerItemId: container.id,
+        ),
+      ],
+    );
+
+    final decoded = BackupCodec.decode(
+      BackupCodec.encode(lists: [broken], settings: repository.settings),
+    );
+    final worn = decoded.lists.single.items.singleWhere(
+      (item) => item.id == 'legacy-worn',
+    );
+    expect(worn.containerItemId, isNull);
   });
 }

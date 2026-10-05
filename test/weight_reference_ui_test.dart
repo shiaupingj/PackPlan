@@ -6,6 +6,7 @@ import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/data/weight_reference_repository.dart';
 import 'package:packplan/models/gear_weight.dart';
 import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/services/support_mail.dart';
 import 'package:packplan/services/weight_reference_source.dart';
 import 'package:packplan/theme/app_colors.dart';
 import 'package:packplan/theme/app_dimens.dart';
@@ -147,7 +148,9 @@ void main() {
     expect(find.textContaining('找到 1 項參考值'), findsOneWidget);
     expect(find.textContaining('參考範圍 60'), findsOneWidget);
     expect(find.text('查無參考資料（1）'), findsOneWidget);
-    expect(find.textContaining('更新於 9/20'), findsOneWidget);
+    // 「資料來源：… · 更新於」那行已刪除。
+    expect(find.textContaining('資料來源'), findsNothing);
+    expect(find.textContaining('更新於'), findsNothing);
 
     // 「套用」與對話框的「取消」同樣圓角
     final applyShape =
@@ -341,7 +344,7 @@ void main() {
     expect(pack.catalogKey, 'large-backpack');
   });
 
-  testWidgets('比對不到時直接開搜尋,並以項目名稱當關鍵字', (tester) async {
+  testWidgets('比對不到參考值時不顯示「帶入參考值」,改名稱比對到就出現', (tester) async {
     await openList(tester);
 
     await scrollTo(
@@ -352,19 +355,32 @@ void main() {
       tester,
       find.byKey(const ValueKey('checklist-tile-power-bank')),
     );
+    final button = find.byKey(const ValueKey('item-editor-weight-reference'));
+    expect(button, findsNothing, reason: '行動電源在線上查不到');
+
+    await tester.enterText(
+      find.byKey(const ValueKey('item-editor-name')),
+      '頭燈',
+    );
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget, reason: '名稱比對到頭燈');
+  });
+
+  testWidgets('只有型號、沒有通用值的項目仍顯示「帶入參考值」並可搜尋', (tester) async {
+    await openList(tester);
+
+    await scrollTo(
+      tester,
+      find.byKey(const ValueKey('checklist-tile-water-bottle')),
+    );
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('checklist-tile-water-bottle')),
+    );
     await tapVisible(
       tester,
       find.byKey(const ValueKey('item-editor-weight-reference')),
     );
-
-    expect(
-      find.widgetWithText(TextField, '行動電源'),
-      findsWidgets,
-      reason: '搜尋框預先帶入項目名稱',
-    );
-    expect(find.text('找不到「行動電源」，試試品牌、型號或其他名稱'), findsOneWidget);
-
-    // 改用品牌搜尋,可以選到其他項目底下的型號
     await tester.enterText(
       find.byKey(const ValueKey('weight-reference-search')),
       'nalgene',
@@ -459,5 +475,129 @@ void main() {
       find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('帶入參考值面板右上 × 可關閉,不會帶入', (tester) async {
+    await openList(tester);
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    expect(find.text('通用值（大背包）'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('weight-reference-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('通用值（大背包）'), findsNothing);
+    expect(find.text('編輯項目'), findsOneWidget, reason: '只關面板,編輯框還在');
+  });
+
+  testWidgets('全部分類都找不到時顯示 Email 回報按鈕', (tester) async {
+    final opened = <Uri>[];
+    var mailAppAvailable = true;
+    final original = SupportMail.launcher;
+    SupportMail.launcher = (uri) async {
+      opened.add(uri);
+      return mailAppAvailable;
+    };
+    addTearDown(() => SupportMail.launcher = original);
+
+    await openList(tester);
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      '不存在的東西',
+    );
+    await tester.pumpAndSettle();
+
+    final report = find.byKey(
+      const ValueKey('weight-reference-report-missing'),
+    );
+    expect(report, findsOneWidget);
+    await tapVisible(tester, report);
+    expect(opened.single.path, 'appspdoit@gmail.com');
+    expect(opened.single.queryParameters['subject'], 'PackPlan 參考重量找不到：不存在的東西');
+    expect(
+      find.byKey(const ValueKey('weight-reference-report-failed')),
+      findsNothing,
+    );
+
+    // 沒有郵件 App:顯示信箱讓使用者自己寄。
+    mailAppAvailable = false;
+    await tapVisible(tester, report);
+    expect(find.text('無法開啟郵件 App，請寄信到 appspdoit@gmail.com'), findsOneWidget);
+  });
+
+  testWidgets('找不到時「回報找不到」在「全部分類」右邊靠右;沒有改搜全部分類與資料來源', (tester) async {
+    tester.view
+      ..physicalSize = const Size(375, 812)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    references = WeightReferenceRepository(
+      source: _FakeSource([
+        _weight('large-backpack', '大背包', 1500, categoryId: 'backpack'),
+        _weight('instant-noodles', '泡麵', 122, categoryId: 'food'),
+      ]),
+      cacheStore: InMemoryWeightReferenceCacheStore(),
+    );
+    await openList(tester);
+    await scrollTo(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(tester, find.byKey(const ValueKey('checklist-tile-pack')));
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-weight-reference')),
+    );
+    expect(find.textContaining('資料來源'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      'pa',
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('weight-reference-search-all')),
+      findsNothing,
+    );
+    expect(find.text('改搜全部分類'), findsNothing);
+    expect(find.textContaining('資料來源'), findsNothing);
+    final report = find.byKey(
+      const ValueKey('weight-reference-report-missing'),
+    );
+    final allChip = find.byKey(const ValueKey('weight-reference-scope-all'));
+    expect(report, findsOneWidget);
+    final reportRect = tester.getRect(report);
+    final chipRect = tester.getRect(allChip);
+    expect(reportRect.left, greaterThan(chipRect.right), reason: '在全部分類右邊');
+    expect(
+      (reportRect.center.dy - chipRect.center.dy).abs(),
+      lessThan(4),
+      reason: '同一行',
+    );
+    expect(reportRect.right, greaterThan(375 - 40), reason: '靠右對齊');
+    expect(tester.takeException(), isNull);
+
+    final clear = find.byKey(const ValueKey('weight-reference-search-clear'));
+    expect(
+      find.descendant(of: clear, matching: find.byIcon(Icons.cancel)),
+      findsOneWidget,
+    );
+
+    // 有結果時不顯示回報按鈕。
+    await tester.tap(allChip);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('weight-reference-search')),
+      '泡麵',
+    );
+    await tester.pumpAndSettle();
+    expect(report, findsNothing);
   });
 }

@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/template_card.dart';
+import '../widgets/weather_choice_chips.dart';
 import 'pack_detail_screen.dart';
 
 class CreatePackFlowScreen extends StatefulWidget {
@@ -21,6 +22,39 @@ class CreatePackFlowScreen extends StatefulWidget {
 }
 
 class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
+  /// Step 3 預設不勾的項目(依範本)。不在名單內的項目預設全勾。
+  /// 名稱也涵蓋依天氣動態加入的天氣裝備(背包防雨套等)。
+  static const _defaultUnselectedNamesByTemplate = {
+    'basic-hike': _basicHikeDefaultUnselectedNames,
+    // 進階登山繼承基礎登山全部項目,沿用同一份預設不勾名單。
+    'advanced-hike': _basicHikeDefaultUnselectedNames,
+    'city-travel': _cityTravelDefaultUnselectedNames,
+  };
+
+  static const _cityTravelDefaultUnselectedNames = {
+    '登機箱',
+    '後背包',
+    '正式服裝',
+    '刮鬍刀',
+    '隱形眼鏡/眼鏡',
+    '化妝品',
+    '保養品',
+    '旅遊保險',
+    '環保購物袋',
+    '太陽眼鏡',
+    '水瓶',
+    '背包防雨套',
+    '防風外套',
+    '保暖中層',
+    '防曬用品',
+    '耳機',
+    '相機',
+    '毛巾',
+    '睡衣',
+    '圍巾配件',
+    '洗面乳',
+  };
+
   static const _basicHikeDefaultUnselectedNames = {
     '背包套',
     '小背包',
@@ -49,15 +83,47 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
   final Set<String> _excludedItemKeys = {};
   final Set<String> _includedItemKeys = {};
 
+  /// Step 2 的清單名稱。使用者沒自己輸入時,選範本會帶入該類型的預設名稱。
+  /// 從範本分頁進來(跳過 Step 1)也一定會經過 Step 2,所以名稱放這裡。
+  final _titleController = TextEditingController();
+  bool _titleEdited = false;
+
   @override
   void initState() {
     super.initState();
-    if (_template != null) _step = 1;
+    final template = _template;
+    if (template != null) {
+      _step = 1;
+      _titleController.text = defaultPackListTitle(template.tripType);
+    }
   }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  void _goToStep(int step) => setState(() => _step = step);
 
   @override
   Widget build(BuildContext context) {
     final canContinue = _step != 0 || _template != null;
+    final actions = _step < 3
+        ? PrimaryActionRow(
+            primaryLabel: '下一步',
+            onPrimary: canContinue ? () => _goToStep(_step + 1) : null,
+            secondaryLabel: _step == 0 ? null : '上一步',
+            onSecondary: _step == 0 ? null : () => _goToStep(_step - 1),
+          )
+        : PrimaryActionRow(
+            primaryLabel: '生成清單',
+            onPrimary: _createList,
+            secondaryLabel: '上一步',
+            onSecondary: () => _goToStep(_step - 1),
+          );
+    // Step 3 項目很長,上一步/下一步固定在頁面底部;其他步驟接在內容後面。
+    final pinActions = _step == 2;
 
     return Scaffold(
       appBar: AppBar(title: const Text('建立清單')),
@@ -70,23 +136,30 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           _buildStep(context),
-          const SizedBox(height: AppSpacing.xl),
-          if (_step < 3)
-            PrimaryActionRow(
-              primaryLabel: '下一步',
-              onPrimary: canContinue ? () => setState(() => _step += 1) : null,
-              secondaryLabel: _step == 0 ? null : '上一步',
-              onSecondary: _step == 0 ? null : () => setState(() => _step -= 1),
-            )
-          else
-            PrimaryActionRow(
-              primaryLabel: '生成清單',
-              onPrimary: _createList,
-              secondaryLabel: '上一步',
-              onSecondary: () => setState(() => _step -= 1),
-            ),
+          if (!pinActions) ...[const SizedBox(height: AppSpacing.xl), actions],
         ],
       ),
+      bottomNavigationBar: pinActions
+          ? DecoratedBox(
+              key: const ValueKey('create-flow-pinned-actions'),
+              decoration: BoxDecoration(
+                color: context.palette.background,
+                border: Border(top: BorderSide(color: context.palette.border)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  child: actions,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -101,10 +174,16 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
               _includedItemKeys.clear();
             }
             _template = template;
+            if (!_titleEdited) {
+              _titleController.text = defaultPackListTitle(template.tripType);
+            }
           });
         },
       ),
       1 => _TripSettingsStep(
+        titleController: _titleController,
+        // 清空名稱後回 Step 1 換範本,會重新帶入預設名稱。
+        onTitleChanged: (value) => _titleEdited = value.trim().isNotEmpty,
         days: _days,
         weatherConditions: _weatherConditions,
         includeWornItems: _includeWornItems,
@@ -131,6 +210,9 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
         },
       ),
       _ => _ReviewStep(
+        title: _titleController.text.trim().isEmpty
+            ? defaultPackListTitle(_template!.tripType)
+            : _titleController.text.trim(),
         template: _template!,
         days: _days,
         weatherConditions: _weatherConditions,
@@ -163,8 +245,8 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
     final key = packItemSelectionKey(item);
     if (_includedItemKeys.contains(key)) return true;
     if (_excludedItemKeys.contains(key)) return false;
-    return !(_template?.id == 'basic-hike' &&
-        _basicHikeDefaultUnselectedNames.contains(item.name));
+    final unselected = _defaultUnselectedNamesByTemplate[_template?.id];
+    return !(unselected?.contains(item.name) ?? false);
   }
 
   void _createList() {
@@ -175,6 +257,7 @@ class _CreatePackFlowScreenState extends State<CreatePackFlowScreen> {
     final list = repository.createFromDraft(
       CreatePackListDraft(
         template: template,
+        title: _titleController.text,
         days: _days,
         weatherConditions: _weatherConditions,
         selectedItemKeys: _selectedItemKeys(),
@@ -337,6 +420,8 @@ class _TemplateStep extends StatelessWidget {
 
 class _TripSettingsStep extends StatelessWidget {
   const _TripSettingsStep({
+    required this.titleController,
+    required this.onTitleChanged,
     required this.days,
     required this.weatherConditions,
     required this.includeWornItems,
@@ -345,6 +430,8 @@ class _TripSettingsStep extends StatelessWidget {
     required this.onIncludeWornItemsChanged,
   });
 
+  final TextEditingController titleController;
+  final ValueChanged<String> onTitleChanged;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final bool includeWornItems;
@@ -359,7 +446,22 @@ class _TripSettingsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('設定天數與天氣', style: t.headlineMedium),
+        Text('旅程設定', style: t.headlineMedium),
+        const SizedBox(height: AppSpacing.lg),
+        // 標題字級同 Step 3 項目文字(bodyMedium 15),輸入文字 22(titleLarge)。
+        // 浮動 label 會被縮成 0.75 倍,所以標題另外放 Text,不用 labelText。
+        Text(
+          '清單名稱',
+          style: t.bodyMedium?.copyWith(color: context.palette.textSecondary),
+        ),
+        TextField(
+          key: const ValueKey('create-list-title'),
+          controller: titleController,
+          onChanged: onTitleChanged,
+          style: t.titleLarge,
+          decoration: const InputDecoration(isDense: true),
+          textInputAction: TextInputAction.done,
+        ),
         const SizedBox(height: AppSpacing.lg),
         Card(
           child: Padding(
@@ -399,35 +501,9 @@ class _TripSettingsStep extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
-          children: WeatherCondition.values.map((value) {
-            final selected = weatherConditions.contains(value);
-            return FilterChip(
-              selected: selected,
-              showCheckmark: false,
-              selectedColor: AppColors.primary,
-              backgroundColor: context.palette.surface,
-              side: BorderSide(
-                color: selected ? AppColors.primary : context.palette.border,
-                width: 0.8,
-              ),
-              labelStyle: TextStyle(
-                color: selected ? AppColors.ink : context.palette.textPrimary,
-              ),
-              label: Text(_weatherLabel(value)),
-              onSelected: (isSelected) {
-                final next = {...weatherConditions};
-                if (isSelected) {
-                  next.add(value);
-                } else if (next.length > 1) {
-                  next.remove(value);
-                }
-                onWeatherChanged(next);
-              },
-            );
-          }).toList(),
+        WeatherChoiceChips(
+          selected: weatherConditions,
+          onChanged: onWeatherChanged,
         ),
         const SizedBox(height: AppSpacing.md),
         Card(
@@ -450,6 +526,7 @@ class _TripSettingsStep extends StatelessWidget {
 
 class _ReviewStep extends StatelessWidget {
   const _ReviewStep({
+    required this.title,
     required this.template,
     required this.days,
     required this.weatherConditions,
@@ -457,6 +534,7 @@ class _ReviewStep extends StatelessWidget {
     required this.selectedItemCount,
   });
 
+  final String title;
   final PackTemplate template;
   final int days;
   final Set<WeatherCondition> weatherConditions;
@@ -471,28 +549,36 @@ class _ReviewStep extends StatelessWidget {
       children: [
         Text('確認清單', style: t.headlineMedium),
         const SizedBox(height: AppSpacing.lg),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(template.name, style: t.titleLarge),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  '$days 天，${_weatherSummary(weatherConditions)}',
-                  style: t.bodyMedium,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text('衣物與食物會依天數調整，天氣會加入對應裝備。', style: t.bodySmall),
-                const SizedBox(height: AppSpacing.sm),
-                Text('已選 $selectedItemCount 個項目', style: t.bodySmall),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  includeWornItems ? '身上穿戴：已加入' : '身上穿戴：未加入',
-                  style: t.bodySmall,
-                ),
-              ],
+        // 滿版:Column 預設依內容寬度縮,卡片要撐滿整列。
+        SizedBox(
+          width: double.infinity,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    key: const ValueKey('review-list-title'),
+                    style: t.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    '${template.name} · $days 天，${_weatherSummary(weatherConditions)}',
+                    style: t.bodyMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text('衣物與食物會依天數調整，天氣會加入對應裝備。', style: t.bodySmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text('已選 $selectedItemCount 個項目', style: t.bodySmall),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    includeWornItems ? '身上穿戴：已加入' : '身上穿戴：未加入',
+                    style: t.bodySmall,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

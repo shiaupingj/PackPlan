@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -42,16 +43,23 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
+      // 灰底圓角方塊 + 白色線條 (i);深淺色都用同一個灰,白圖示在兩種底上都清楚。
       floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton.small(
-              key: const ValueKey('home-help-button'),
-              heroTag: 'home-help-button',
-              tooltip: '操作說明',
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 2,
-              onPressed: () => _showHomeHelp(context),
-              child: const Icon(Icons.info_outline_rounded),
+          ? SizedBox.square(
+              dimension: 48,
+              child: FloatingActionButton(
+                key: const ValueKey('home-help-button'),
+                heroTag: 'home-help-button',
+                tooltip: '操作說明',
+                backgroundColor: AppColors.trackMuted,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                onPressed: () => _showHomeHelp(context),
+                child: const Icon(Icons.info_outline_rounded, size: 26),
+              ),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -74,7 +82,7 @@ class _AppShellState extends State<AppShell> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('長按首頁中的任一清單卡片，即可開啟清單操作選單。'),
+                const Text('點清單卡片右上角的「⋯」或長按卡片，即可開啟清單操作選單。'),
                 const SizedBox(height: AppSpacing.lg),
                 const _HelpAction(
                   icon: Icons.edit_outlined,
@@ -170,39 +178,45 @@ class _FloatingNavBar extends StatelessWidget {
         child: Align(
           alignment: Alignment.center,
           heightFactor: 1,
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: palette.surface,
-              shape: const StadiumBorder(),
-              shadows: [
-                const BoxShadow(
-                  color: Color(0x2E000000), // 黑 18%
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
-                ),
-                // 深色模式膠囊與卡片同色,加一圈深色外光暈才分得出來。
-                if (palette.brightness == Brightness.dark)
-                  const BoxShadow(
-                    color: Color(0xCC000000), // 黑 80%
-                    blurRadius: 16,
-                    spreadRadius: 6,
-                  ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < _tabs.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 6),
-                    _NavTab(
-                      data: _tabs[i],
-                      selected: i == selectedIndex,
-                      onTap: () => onSelected(i),
+          // 陰影只畫在膠囊外圍:半透明底若直接疊 BoxShadow,陰影會透出來把玻璃染暗。
+          child: CustomPaint(
+            painter: const _OuterShadowPainter(),
+            child: ClipPath(
+              clipper: const ShapeBorderClipper(shape: StadiumBorder()),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: DecoratedBox(
+                  key: const ValueKey('floating-nav-glass'),
+                  decoration: ShapeDecoration(
+                    color: palette.surface.withValues(alpha: 0.72),
+                    // 半透明時邊緣容易糊進背景,用一條細邊收住輪廓。
+                    shape: StadiumBorder(
+                      side: BorderSide(
+                        color: palette.border.withValues(alpha: 0.6),
+                        width: 0.5,
+                      ),
                     ),
-                  ],
-                ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < _tabs.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          _NavTab(
+                            data: _tabs[i],
+                            selected: i == selectedIndex,
+                            onTap: () => onSelected(i),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -210,6 +224,38 @@ class _FloatingNavBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 浮動膠囊的外圍陰影:先把膠囊本體挖掉再畫,玻璃底下不會有陰影透出。
+class _OuterShadowPainter extends CustomPainter {
+  const _OuterShadowPainter();
+
+  static const _shadow = BoxShadow(
+    color: Color(0x2E000000), // 黑 18%
+    blurRadius: 18,
+    offset: Offset(0, 6),
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final capsule = const StadiumBorder().getOuterPath(rect);
+    final outside = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(_shadow.blurRadius * 3))
+      ..addPath(capsule, Offset.zero);
+    canvas
+      ..save()
+      ..clipPath(outside)
+      ..drawPath(
+        const StadiumBorder().getOuterPath(rect.shift(_shadow.offset)),
+        _shadow.toPaint(),
+      )
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(_OuterShadowPainter oldDelegate) => false;
 }
 
 class _NavTabData {

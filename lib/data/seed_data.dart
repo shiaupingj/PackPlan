@@ -235,7 +235,7 @@ abstract final class SeedData {
   }
 
   /// 把分類群組展開成候選 [PackItem]（重量先給 0，實際建立清單時再填）。
-  /// 非容器項目預設歸屬到 [defaultContainerId] 這個容器。
+  /// 非容器項目預設歸屬到 [defaultContainerId] 這個容器;身上穿戴不放進任何容器。
   static List<PackItem> _buildFromGroups(
     List<_TemplateItemGroup> groups, {
     required String defaultContainerId,
@@ -257,7 +257,10 @@ abstract final class SeedData {
             sortOrder: sortOrder,
             weightClass: spec.weightClass,
             isContainer: spec.isContainer,
-            containerItemId: spec.isContainer ? null : defaultContainerId,
+            containerItemId:
+                spec.isContainer || spec.weightClass == WeightClass.worn
+                ? null
+                : defaultContainerId,
             weightSource: WeightSource.unset,
             catalogKey: spec.catalogKey ?? spec.id,
           ),
@@ -308,7 +311,7 @@ abstract final class SeedData {
           name: '換洗衣物',
           necessity: ItemNecessity.required,
         ),
-        _TemplateItemSpec(id: 'hiking-socks', name: '襪子/備用羊毛襪'),
+        _TemplateItemSpec(id: 'hiking-socks', name: '襪子'),
         _TemplateItemSpec(id: 'hat', name: '帽子'),
         _TemplateItemSpec(id: 'beanie', name: '毛帽'),
         _TemplateItemSpec(id: 'buff', name: '頭巾'),
@@ -465,12 +468,7 @@ abstract final class SeedData {
       id: 'luggage',
       name: '行李',
       items: [
-        _TemplateItemSpec(
-          id: 'carry-on',
-          name: '登機箱',
-          necessity: ItemNecessity.required,
-          isContainer: true,
-        ),
+        _TemplateItemSpec(id: 'carry-on', name: '登機箱', isContainer: true),
         _TemplateItemSpec(
           id: 'personal-bag',
           name: '隨身包',

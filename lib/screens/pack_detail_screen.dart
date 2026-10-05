@@ -18,7 +18,9 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_buttons.dart';
 import '../widgets/checklist_tile.dart';
+import '../widgets/delete_list_dialog.dart';
 import '../widgets/weight_reference_sheets.dart';
+import '../widgets/weather_choice_chips.dart';
 import '../widgets/weight_bar.dart';
 import '../widgets/app_dialog_title.dart';
 
@@ -38,6 +40,31 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   String? _placement;
   WeightReferenceRepository? _references;
 
+  /// 剛從「⋯」選單刪除的清單,只在返回首頁的轉場期間使用。
+  PackList? _deletedList;
+
+  final _scrollController = ScrollController();
+
+  /// 「放置位置」區塊剛好固定在頂端時的捲動位置(= 它上方內容的總高度)。
+  /// 每次排版時由區塊前的 [SliverLayoutBuilder] 更新。
+  double _placementPinnedOffset = 0;
+
+  bool get _placementPinned =>
+      _scrollController.hasClients &&
+      _scrollController.offset >= _placementPinnedOffset - 0.5;
+
+  /// 切換放置位置分頁。區塊已固定在頂端時維持固定,並從新分頁的第一個分類開始看,
+  /// 不因內容變少被拉回頁面最上方。
+  void _selectPlacement(String? value) {
+    final keepPinned = _placementPinned;
+    setState(() => _placement = value);
+    if (!keepPinned) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_placementPinnedOffset);
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -52,6 +79,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   @override
   void dispose() {
     _references?.removeListener(_handleReferencesChanged);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -62,7 +90,8 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final repository = AppScope.of(context);
-    final list = repository.findById(widget.listId);
+    // 從「⋯」刪除時,返回動畫期間仍畫刪除前的內容,不閃「找不到這份清單」。
+    final list = repository.findById(widget.listId) ?? _deletedList;
     final settings = repository.settings;
 
     if (list == null) {
@@ -105,135 +134,218 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         title: Text(list.title),
         actions: [
           IconButton(
-            tooltip: '重新命名',
-            onPressed: () => _showRenameDialog(context, list),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
             tooltip: '旅程設定',
             onPressed: () => _showTripSettingsEditor(context, list),
             icon: const Icon(Icons.tune),
           ),
-          IconButton(
-            tooltip: '分享',
-            onPressed: () =>
-                _showShareSheet(context, list, settings.weightUnit),
-            icon: const Icon(Icons.ios_share),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          Text(
-            TripFormatters.summary(list),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (list.showWeight)
-            _WeightHeader(
-              summary: summary,
-              unit: settings.weightUnit,
-              heaviestItem: WeightCalculator.heaviestItem(list),
-              onlineWeightCount: onlineWeightCount,
-              footer: ulModeRow,
-            )
-          else
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: ulModeRow,
+          PopupMenuButton<_ListMenuAction>(
+            key: const ValueKey('list-more-menu'),
+            tooltip: '更多',
+            icon: const Icon(Icons.more_horiz),
+            onSelected: (action) {
+              switch (action) {
+                case _ListMenuAction.share:
+                  _showShareSheet(context, list, settings.weightUnit);
+                case _ListMenuAction.rename:
+                  _showRenameDialog(context, list);
+                case _ListMenuAction.delete:
+                  _requestDeleteList(context, list);
+              }
+            },
+            itemBuilder: (menuContext) => [
+              const PopupMenuItem(
+                value: _ListMenuAction.share,
+                child: _ListMenuRow(icon: Icons.ios_share, label: '分享'),
               ),
-            ),
-          const SizedBox(height: AppSpacing.md),
-          if (list.showWeight && missingWeightItems.isNotEmpty) ...[
-            _MissingWeightBanner(
-              count: missingWeightItems.length,
-              onFill: () => _fillMissingWeights(
-                context,
-                list.id,
-                missingWeightItems,
-                settings.weightUnit,
+              const PopupMenuItem(
+                value: _ListMenuAction.rename,
+                child: _ListMenuRow(icon: Icons.edit_outlined, label: '重新命名'),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: PrimaryButton(
-                  label: '新增項目',
-                  icon: Icons.add,
-                  onPressed: () => _showItemEditor(
-                    context,
-                    list.id,
-                    containers: containers,
-                    categoryNames: categoryNames,
-                    categoryIdByName: categoryIdByName,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: PrimaryButton(
-                  label: '分類排序',
-                  icon: Icons.swap_vert,
-                  onPressed: () => _showCategoryOrderDialog(
-                    context,
-                    list.id,
-                    groupedItems.keys.toList(),
-                  ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: _ListMenuAction.delete,
+                child: _ListMenuRow(
+                  icon: Icons.delete_outline,
+                  label: '刪除清單',
+                  color: menuContext.palette.weightOver,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          _ContainerSummarySection(
-            items: list.items,
-            containers: containers,
-            unit: settings.weightUnit,
-            showWeight: list.showWeight,
-            selected: placement,
-            onSelected: (value) => setState(() => _placement = value),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...visibleGroups.entries.map(
-            (entry) => _CategorySection(
-              name: entry.key,
-              items: entry.value,
-              ulMode: _ulMode,
-              unit: settings.weightUnit,
-              showWeight: list.showWeight,
-              references: _references!,
-              onChanged: (item, checked) =>
-                  repository.toggleItem(list.id, item.id, checked),
-              onEdit: (item) => _showItemEditor(
-                context,
-                list.id,
-                item: item,
-                containers: containers,
-                categoryNames: categoryNames,
-                categoryIdByName: categoryIdByName,
-              ),
-              onDelete: (item) =>
-                  _requestDeleteItem(context, list, item, containers),
-              onAddItem: (categoryName) => _showItemEditor(
-                context,
-                list.id,
-                containers: containers,
-                categoryNames: categoryNames,
-                categoryIdByName: categoryIdByName,
-                initialCategoryName: categoryName,
-                initialContainerId: _isContainerTab(placement)
-                    ? placement
-                    : null,
-              ),
-              // 篩選某個放置位置時只看到部分項目,不開放拖曳排序。
-              canReorder: placement == null,
-              onReorder: (items) => repository.reorderItems(list.id, items),
-              onRename: () =>
-                  _showCategoryRenameDialog(context, list.id, entry.key),
+        ],
+      ),
+      // 「放置位置」標題 + 分頁 + 說明/本體摘要捲到頂端時固定住,下方分類從底下捲過。
+      body: CustomScrollView(
+        key: const ValueKey('pack-detail-scroll'),
+        controller: _scrollController,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              0,
             ),
+            sliver: SliverList.list(
+              children: [
+                Text(
+                  TripFormatters.summary(list),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (list.showWeight)
+                  _WeightHeader(
+                    summary: summary,
+                    unit: settings.weightUnit,
+                    heaviestItem: WeightCalculator.heaviestItem(list),
+                    onlineWeightCount: onlineWeightCount,
+                    footer: ulModeRow,
+                  )
+                else
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: ulModeRow,
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+                if (list.showWeight && missingWeightItems.isNotEmpty) ...[
+                  _MissingWeightBanner(
+                    count: missingWeightItems.length,
+                    onFill: () => _fillMissingWeights(
+                      context,
+                      list.id,
+                      missingWeightItems,
+                      settings.weightUnit,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: PrimaryButton(
+                        label: '新增項目',
+                        icon: Icons.add,
+                        onPressed: () => _showItemEditor(
+                          context,
+                          list.id,
+                          containers: containers,
+                          categoryNames: categoryNames,
+                          categoryIdByName: categoryIdByName,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: '分類排序',
+                        icon: Icons.swap_vert,
+                        onPressed: () => _showCategoryOrderDialog(
+                          context,
+                          list.id,
+                          groupedItems.keys.toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+            ),
+          ),
+          // 不佔空間,只記下「放置位置」區塊上方內容的總高度。
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              _placementPinnedOffset = constraints.precedingScrollExtent;
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            },
+          ),
+          PinnedHeaderSliver(
+            child: ColoredBox(
+              key: const ValueKey('placement-pinned-header'),
+              // 不透明底色,下方內容捲到底下時不會透出來。
+              color: context.palette.background,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                ),
+                child: _ContainerSummarySection(
+                  items: list.items,
+                  containers: containers,
+                  unit: settings.weightUnit,
+                  showWeight: list.showWeight,
+                  selected: placement,
+                  onSelected: _selectPlacement,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            sliver: SliverList.list(
+              children: [
+                ...visibleGroups.entries.map(
+                  (entry) => _CategorySection(
+                    name: entry.key,
+                    items: entry.value,
+                    ulMode: _ulMode,
+                    unit: settings.weightUnit,
+                    showWeight: list.showWeight,
+                    references: _references!,
+                    onChanged: (item, checked) =>
+                        repository.toggleItem(list.id, item.id, checked),
+                    onEdit: (item) => _showItemEditor(
+                      context,
+                      list.id,
+                      item: item,
+                      containers: containers,
+                      categoryNames: categoryNames,
+                      categoryIdByName: categoryIdByName,
+                    ),
+                    onDelete: (item) =>
+                        _requestDeleteItem(context, list, item, containers),
+                    onAddItem: (categoryName) => _showItemEditor(
+                      context,
+                      list.id,
+                      containers: containers,
+                      categoryNames: categoryNames,
+                      categoryIdByName: categoryIdByName,
+                      initialCategoryName: categoryName,
+                      initialContainerId: _isContainerTab(placement)
+                          ? placement
+                          : null,
+                    ),
+                    // 篩選某個放置位置時只看到部分項目,不開放拖曳排序。
+                    canReorder: placement == null,
+                    onReorder: (items) =>
+                        repository.reorderItems(list.id, items),
+                    onRename: () =>
+                        _showCategoryRenameDialog(context, list.id, entry.key),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // 分頁內容很少時在底部補留白,讓頁面仍捲得到「放置位置」固定在頂端的位置。
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              final needed =
+                  _placementPinnedOffset +
+                  constraints.viewportMainAxisExtent -
+                  constraints.precedingScrollExtent;
+              return SliverToBoxAdapter(
+                child: SizedBox(height: needed > 0 ? needed : 0),
+              );
+            },
           ),
         ],
       ),
@@ -407,6 +519,16 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     repository.renameList(list.id, title);
   }
 
+  Future<void> _requestDeleteList(BuildContext context, PackList list) async {
+    final confirmed = await confirmDeleteList(context, list.title);
+    if (!confirmed || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _deletedList = list);
+    AppScope.of(context).deleteList(list.id);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(const SnackBar(content: Text('清單已刪除')));
+  }
+
   Future<void> _waitForDialogToClose() {
     return Future<void>.delayed(const Duration(milliseconds: 220));
   }
@@ -419,12 +541,16 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final result = await showDialog<_TripSettingsResult>(
       context: context,
       builder: (_) => _TripSettingsDialog(
+        title: list.title,
         days: list.days,
         weatherConditions: list.weatherConditions,
         showWeight: list.showWeight,
       ),
     );
     if (result == null) return;
+    if (result.title.trim() != list.title) {
+      repository.renameList(list.id, result.title);
+    }
     repository.updateTripSettings(
       list.id,
       days: result.days,
@@ -1197,115 +1323,129 @@ class _CategorySection extends StatelessWidget {
       child: Card(
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            title: Text(name, style: Theme.of(context).textTheme.titleMedium),
-            trailing: SizedBox(
-              height: 48,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: '重新命名$name分類',
-                    icon: Icon(
-                      Icons.edit_outlined,
+          child: _ExpandedStateBuilder(
+            storageId: 'category-expanded-$name',
+            builder: (context, expanded, onExpansionChanged) => ExpansionTile(
+              initiallyExpanded: expanded,
+              onExpansionChanged: onExpansionChanged,
+              title: Text(name, style: Theme.of(context).textTheme.titleMedium),
+              trailing: SizedBox(
+                height: 48,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      tooltip: '重新命名$name分類',
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: onRename,
+                    ),
+                    IconButton(
+                      tooltip: '新增$name項目',
+                      icon: Icon(
+                        Icons.add,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: () => onAddItem(name),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    // 展開時顯示 v、收合時顯示 ^。
+                    Icon(
+                      expanded ? Icons.expand_more : Icons.expand_less,
+                      key: ValueKey('category-toggle-$name'),
                       color: context.palette.textSecondary,
                     ),
-                    onPressed: onRename,
-                  ),
-                  IconButton(
-                    tooltip: '新增$name項目',
-                    icon: Icon(Icons.add, color: context.palette.textSecondary),
-                    onPressed: () => onAddItem(name),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Icon(Icons.expand_less, color: context.palette.textSecondary),
-                ],
+                  ],
+                ),
               ),
-            ),
-            subtitle: showWeight
-                ? Text(
-                    wornGram > 0
-                        ? '背重 ${WeightFormatters.gram(carriedGram, unit: unit)} · '
-                              '穿戴 ${WeightFormatters.gram(wornGram, unit: unit)}'
-                        : WeightFormatters.gram(carriedGram, unit: unit),
-                  )
-                : null,
-            childrenPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.sm,
-            ),
-            children: [
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                buildDefaultDragHandles: false,
-                itemCount: items.length,
-                onReorder: (oldIndex, newIndex) {
-                  final reordered = [...items];
-                  if (newIndex > oldIndex) newIndex -= 1;
-                  final moved = reordered.removeAt(oldIndex);
-                  reordered.insert(newIndex, moved);
-                  onReorder(reordered);
-                },
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return Row(
-                    key: ValueKey(item.id),
-                    children: [
-                      Expanded(
-                        child: ChecklistTile(
-                          key: ValueKey('checklist-tile-${item.id}'),
-                          label: item.quantity > 1
-                              ? '${item.name} x${item.quantity}'
-                              : item.name,
-                          weightGram: item.totalWeightGram,
-                          weightLabel: WeightFormatters.gram(
-                            item.totalWeightGram,
-                            unit: unit,
-                          ),
-                          showWeight: showWeight,
-                          weightMissing: item.isWeightMissing,
-                          weightTooltip:
-                              item.weightSource == WeightSource.online
-                              ? WeightReferenceLabels.tooltip(
-                                  item.catalogKey == null
-                                      ? null
-                                      : references.lookup(item.catalogKey!),
-                                  unit,
-                                )
-                              : null,
-                          checked: item.checked,
-                          dimmed:
-                              ulMode &&
-                              item.weightClass == WeightClass.packed &&
-                              item.necessity != ItemNecessity.required,
-                          badgeLabel:
-                              _weightClassBadge(item.weightClass) ??
-                              (ulMode ? _reductionBadge(item.necessity) : null),
-                          badgeFilled:
-                              item.weightClass == WeightClass.worn ||
-                              (item.weightClass == WeightClass.packed &&
-                                  item.necessity == ItemNecessity.luxury),
-                          onChanged: (checked) => onChanged(item, checked),
-                          onEdit: () => onEdit(item),
-                          onLongPress: () => _showItemActions(context, item),
-                        ),
-                      ),
-                      if (canReorder)
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: const Padding(
-                            padding: EdgeInsets.all(AppSpacing.sm),
-                            child: Icon(Icons.drag_handle),
+              subtitle: showWeight
+                  ? Text(
+                      wornGram > 0
+                          ? '背重 ${WeightFormatters.gram(carriedGram, unit: unit)} · '
+                                '穿戴 ${WeightFormatters.gram(wornGram, unit: unit)}'
+                          : WeightFormatters.gram(carriedGram, unit: unit),
+                    )
+                  : null,
+              childrenPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.sm,
+              ),
+              children: [
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  itemCount: items.length,
+                  onReorder: (oldIndex, newIndex) {
+                    final reordered = [...items];
+                    if (newIndex > oldIndex) newIndex -= 1;
+                    final moved = reordered.removeAt(oldIndex);
+                    reordered.insert(newIndex, moved);
+                    onReorder(reordered);
+                  },
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return Row(
+                      key: ValueKey(item.id),
+                      children: [
+                        Expanded(
+                          child: ChecklistTile(
+                            key: ValueKey('checklist-tile-${item.id}'),
+                            label: item.quantity > 1
+                                ? '${item.name} x${item.quantity}'
+                                : item.name,
+                            weightGram: item.totalWeightGram,
+                            weightLabel: WeightFormatters.gram(
+                              item.totalWeightGram,
+                              unit: unit,
+                            ),
+                            showWeight: showWeight,
+                            weightMissing: item.isWeightMissing,
+                            weightTooltip:
+                                item.weightSource == WeightSource.online
+                                ? WeightReferenceLabels.tooltip(
+                                    item.catalogKey == null
+                                        ? null
+                                        : references.lookup(item.catalogKey!),
+                                    unit,
+                                  )
+                                : null,
+                            checked: item.checked,
+                            dimmed:
+                                ulMode &&
+                                item.weightClass == WeightClass.packed &&
+                                item.necessity != ItemNecessity.required,
+                            badgeLabel:
+                                _weightClassBadge(item.weightClass) ??
+                                (ulMode
+                                    ? _reductionBadge(item.necessity)
+                                    : null),
+                            badgeFilled:
+                                item.weightClass == WeightClass.worn ||
+                                (item.weightClass == WeightClass.packed &&
+                                    item.necessity == ItemNecessity.luxury),
+                            onChanged: (checked) => onChanged(item, checked),
+                            onEdit: () => onEdit(item),
+                            onLongPress: () => _showItemActions(context, item),
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ],
+                        if (canReorder)
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Padding(
+                              padding: EdgeInsets.all(AppSpacing.sm),
+                              child: Icon(Icons.drag_handle),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1379,11 +1519,14 @@ class _ItemEditorResult {
 
 class _TripSettingsResult {
   const _TripSettingsResult({
+    required this.title,
     required this.days,
     required this.weatherConditions,
     required this.showWeight,
   });
 
+  /// 空白代表不改名(renameList 會忽略空字串)。
+  final String title;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final bool showWeight;
@@ -1391,11 +1534,13 @@ class _TripSettingsResult {
 
 class _TripSettingsDialog extends StatefulWidget {
   const _TripSettingsDialog({
+    required this.title,
     required this.days,
     required this.weatherConditions,
     required this.showWeight,
   });
 
+  final String title;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final bool showWeight;
@@ -1405,9 +1550,16 @@ class _TripSettingsDialog extends StatefulWidget {
 }
 
 class _TripSettingsDialogState extends State<_TripSettingsDialog> {
+  late final _titleController = TextEditingController(text: widget.title);
   late int _days = widget.days;
   late Set<WeatherCondition> _weatherConditions = {...widget.weatherConditions};
   late bool _showWeight = widget.showWeight;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1415,78 +1567,62 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
     return AlertDialog(
       titlePadding: AppDialogTitle.padding,
       title: const AppDialogTitle('旅程設定'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('天數', style: t.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              IconButton(
-                tooltip: '減少天數',
-                onPressed: _days <= 1 ? null : () => setState(() => _days -= 1),
-                icon: const Icon(Icons.remove),
-              ),
-              Expanded(
-                child: Text(
-                  '$_days 天',
-                  textAlign: TextAlign.center,
-                  style: t.titleLarge,
+      // 名稱欄位叫出鍵盤時內容可捲動,避免溢出。
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const ValueKey('trip-settings-title'),
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: '清單名稱'),
+              textInputAction: TextInputAction.done,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('天數', style: t.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: '減少天數',
+                  onPressed: _days <= 1
+                      ? null
+                      : () => setState(() => _days -= 1),
+                  icon: const Icon(Icons.remove),
                 ),
-              ),
-              IconButton(
-                tooltip: '增加天數',
-                onPressed: _days >= 14
-                    ? null
-                    : () => setState(() => _days += 1),
-                icon: const Icon(Icons.add),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text('天氣', style: t.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: WeatherCondition.values.map((weather) {
-              final selected = _weatherConditions.contains(weather);
-              return FilterChip(
-                selected: selected,
-                showCheckmark: true,
-                checkmarkColor: AppColors.ink,
-                selectedColor: AppColors.primary,
-                backgroundColor: context.palette.surface,
-                side: BorderSide(
-                  color: selected ? AppColors.primary : context.palette.border,
-                  width: 0.8,
+                Expanded(
+                  child: Text(
+                    '$_days 天',
+                    textAlign: TextAlign.center,
+                    style: t.titleLarge,
+                  ),
                 ),
-                labelStyle: TextStyle(
-                  color: selected ? AppColors.ink : context.palette.textPrimary,
+                IconButton(
+                  tooltip: '增加天數',
+                  onPressed: _days >= 14
+                      ? null
+                      : () => setState(() => _days += 1),
+                  icon: const Icon(Icons.add),
                 ),
-                label: Text(_weatherLabel(weather)),
-                onSelected: (value) {
-                  final next = {..._weatherConditions};
-                  if (value) {
-                    next.add(weather);
-                  } else if (next.length > 1) {
-                    next.remove(weather);
-                  }
-                  setState(() => _weatherConditions = next);
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('顯示重量'),
-            subtitle: const Text('套用於首頁、清單詳情與分享摘要'),
-            value: _showWeight,
-            onChanged: (value) => setState(() => _showWeight = value),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text('天氣', style: t.titleMedium),
+            const SizedBox(height: AppSpacing.sm),
+            WeatherChoiceChips(
+              selected: _weatherConditions,
+              onChanged: (next) => setState(() => _weatherConditions = next),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('顯示重量'),
+              value: _showWeight,
+              onChanged: (value) => setState(() => _showWeight = value),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -1496,6 +1632,7 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
         FilledButton(
           onPressed: () => Navigator.of(context).pop(
             _TripSettingsResult(
+              title: _titleController.text,
               days: _days,
               weatherConditions: _weatherConditions,
               showWeight: _showWeight,
@@ -1703,11 +1840,25 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     return categories;
   }
 
+  bool _referencesRequested = false;
+
   @override
   void initState() {
     super.initState();
     _lastCategoryName = _normalizedCategory(_categoryController.text);
     _categoryController.addListener(_handleCategoryChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 「帶入參考值」只在比對得到時顯示,所以開啟編輯就先備好線上資料。
+    if (_referencesRequested) return;
+    _referencesRequested = true;
+    final references = WeightReferenceScope.of(context);
+    references.load().then((_) {
+      if (!references.hasData) references.syncQuietly();
+    });
   }
 
   @override
@@ -1734,9 +1885,14 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('名稱', style: _editorFieldLabelStyle(context)),
+            // 名稱過長時最多換到 2 行,再長就在框內捲動(編輯中的文字無法用「…」截斷)。
             TextField(
+              key: const ValueKey('item-editor-name'),
               controller: _nameController,
               decoration: const InputDecoration(),
+              minLines: 1,
+              maxLines: 2,
+              keyboardType: TextInputType.text,
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -1831,47 +1987,63 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               ],
             ),
             // 「帶入參考值」右邊接著顯示目前的線上參考值(或查詢結果提示)。
-            Row(
-              children: [
-                TextButton.icon(
-                  key: const ValueKey('item-editor-weight-reference'),
-                  onPressed: _lookingUpReference ? null : _pickReference,
-                  icon: _lookingUpReference
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.cloud_download_outlined, size: 18),
-                  label: const Text('帶入參考值'),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                if (_referenceHint(context) case final hint?) ...[
-                  const Icon(
-                    Icons.cloud_outlined,
-                    key: ValueKey('item-editor-reference-icon'),
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      hint,
-                      key: const ValueKey('item-editor-reference-hint'),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+            // 項目比對不到任何線上參考值時整列不顯示;名稱改了或資料同步完會重算。
+            ListenableBuilder(
+              listenable: Listenable.merge([
+                WeightReferenceScope.of(context),
+                _nameController,
+              ]),
+              builder: (context, _) => !_hasReferenceMatch
+                  ? const SizedBox.shrink()
+                  : Row(
+                      children: [
+                        TextButton.icon(
+                          key: const ValueKey('item-editor-weight-reference'),
+                          onPressed: _lookingUpReference
+                              ? null
+                              : _pickReference,
+                          icon: _lookingUpReference
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.cloud_download_outlined,
+                                  size: 18,
+                                ),
+                          label: const Text('帶入參考值'),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        if (_referenceHint(context) case final hint?) ...[
+                          const Icon(
+                            Icons.cloud_outlined,
+                            key: ValueKey('item-editor-reference-icon'),
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              hint,
+                              key: const ValueKey('item-editor-reference-hint'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.primary),
+                            ),
+                          ),
+                        ] else if (_referenceNotice case final notice?)
+                          Expanded(
+                            child: Text(
+                              notice,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: context.palette.textSecondary,
+                                  ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                ] else if (_referenceNotice case final notice?)
-                  Expanded(
-                    child: Text(
-                      notice,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: context.palette.textSecondary,
-                      ),
-                    ),
-                  ),
-              ],
             ),
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -2024,7 +2196,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     );
   }
 
-  /// 「設為容器」開關;完整說明長按 (i) 顯示。
+  /// 「設為容器」開關;完整說明點 (i) 顯示。
   Widget _containerToggle(BuildContext context) {
     final labelStyle = Theme.of(
       context,
@@ -2037,15 +2209,19 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('設為容器', style: labelStyle),
-            const SizedBox(width: AppSpacing.xs),
+            // 點一下就顯示說明;圖示只有 18,外面留 36×36 的點擊範圍。
             Tooltip(
               key: const ValueKey('item-editor-container-info'),
               message: '設為背包/行李容器：容器本身會計入重量，其他項目可放入此處',
-              triggerMode: TooltipTriggerMode.longPress,
-              child: Icon(
-                Icons.info_outline,
-                size: 16,
-                color: context.palette.textSecondary,
+              triggerMode: TooltipTriggerMode.tap,
+              showDuration: const Duration(seconds: 4),
+              child: SizedBox.square(
+                dimension: 36,
+                child: Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: context.palette.textSecondary,
+                ),
               ),
             ),
           ],
@@ -2062,6 +2238,23 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
         ),
       ],
     );
+  }
+
+  /// 這個項目(依範本 key 或目前名稱)在線上參考重量裡找得到通用值或型號。
+  /// 已帶入過參考值時一律顯示,才能看到「線上參考」提示並重新選。
+  bool get _hasReferenceMatch {
+    if (_currentReference != null) return true;
+    final references = WeightReferenceScope.of(context);
+    if (!references.isLoaded || !references.hasData) return false;
+    final catalogKey = _appliedReference?.key ?? widget.item?.catalogKey;
+    final match = references.match(
+      catalogKey: catalogKey,
+      name: _nameController.text.trim(),
+    );
+    final parentKey = match?.parentKey ?? match?.key ?? catalogKey;
+    if (parentKey == null) return false;
+    return references.lookup(parentKey) != null ||
+        references.variantsOf(parentKey).isNotEmpty;
   }
 
   GearWeight? get _currentReference {
@@ -2291,11 +2484,63 @@ String? _reductionBadge(ItemNecessity necessity) {
   };
 }
 
-String _weatherLabel(WeatherCondition weather) {
-  return switch (weather) {
-    WeatherCondition.sunny => '晴天',
-    WeatherCondition.cloudy => '陰天',
-    WeatherCondition.rainy => '雨天',
-    WeatherCondition.cold => '低溫',
-  };
+/// 記住分類卡片的展開狀態,讓右上箭頭跟著切換。
+/// 存在頁面的 PageStorage:分類捲出畫面再回來,展開/收合不會被重設。
+class _ExpandedStateBuilder extends StatefulWidget {
+  const _ExpandedStateBuilder({required this.storageId, required this.builder});
+
+  final String storageId;
+  final Widget Function(
+    BuildContext context,
+    bool expanded,
+    ValueChanged<bool> onExpansionChanged,
+  )
+  builder;
+
+  @override
+  State<_ExpandedStateBuilder> createState() => _ExpandedStateBuilderState();
+}
+
+class _ExpandedStateBuilderState extends State<_ExpandedStateBuilder> {
+  late bool _expanded =
+      PageStorage.maybeOf(
+            context,
+          )?.readState(context, identifier: widget.storageId)
+          as bool? ??
+      true;
+
+  void _handleChanged(bool expanded) {
+    setState(() => _expanded = expanded);
+    PageStorage.maybeOf(
+      context,
+    )?.writeState(context, expanded, identifier: widget.storageId);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, _expanded, _handleChanged);
+}
+
+/// 清單內頁右上「⋯」選單的項目。
+enum _ListMenuAction { share, rename, delete }
+
+class _ListMenuRow extends StatelessWidget {
+  const _ListMenuRow({required this.icon, required this.label, this.color});
+
+  final IconData icon;
+  final String label;
+
+  /// 不指定時沿用選單預設文字色;刪除用警示紅。
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color ?? context.palette.textSecondary),
+        const SizedBox(width: AppSpacing.md),
+        Text(label, style: color == null ? null : TextStyle(color: color)),
+      ],
+    );
+  }
 }
