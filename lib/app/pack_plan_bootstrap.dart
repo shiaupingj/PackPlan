@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/pack_list_repository.dart';
 import '../data/weight_reference_repository.dart';
+import '../services/backup_codec.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
@@ -103,6 +104,7 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
           theme: AppTheme.light,
           home: snapshot.hasError
               ? _StartupRecoveryScreen(
+                  error: snapshot.error!,
                   resetting: _resetting,
                   onRetry: _retry,
                   onReset: _confirmReset,
@@ -138,14 +140,24 @@ class _StartupLoadingScreen extends StatelessWidget {
 
 class _StartupRecoveryScreen extends StatelessWidget {
   const _StartupRecoveryScreen({
+    required this.error,
     required this.resetting,
     required this.onRetry,
     required this.onReset,
   });
 
+  /// 讀取失敗的原因;顯示在畫面最下方,實機(release)沒有 log 時也能截圖回報。
+  final Object error;
   final bool resetting;
   final VoidCallback onRetry;
   final void Function(BuildContext hostContext) onReset;
+
+  String get _errorDetail {
+    final detail = error is BackupFormatException
+        ? (error as BackupFormatException).message
+        : '${error.runtimeType}: $error';
+    return detail.length > 300 ? '${detail.substring(0, 300)}…' : detail;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +212,13 @@ class _StartupRecoveryScreen extends StatelessWidget {
                   Text(
                     '重建會清除這台裝置的本機資料。已有備份的話，之後可從「設定」匯入還原。',
                     style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  SelectableText(
+                    '錯誤原因：$_errorDetail',
+                    key: const ValueKey('startup-error-detail'),
+                    style: Theme.of(context).textTheme.labelSmall,
                     textAlign: TextAlign.center,
                   ),
                 ],

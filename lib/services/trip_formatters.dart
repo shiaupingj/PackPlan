@@ -9,6 +9,11 @@ abstract final class TripFormatters {
     ].join(' · ');
   }
 
+  /// 首頁 2 欄卡片用的精簡摘要:只有類型與天數,不含天氣。
+  static String brief(PackList list) {
+    return [tripType(list.tripType), duration(list)].join(' · ');
+  }
+
   static String tripType(TripType type) {
     return switch (type) {
       TripType.hiking => '登山',

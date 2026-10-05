@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/app/pack_plan_app.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/theme/app_colors.dart';
 import 'package:packplan/widgets/checklist_tile.dart';
 
 /// 清單列:名稱與重量分開顯示,依兩者找到那一列。
@@ -45,12 +46,19 @@ void main() {
 
     final helpButton = find.byKey(const ValueKey('home-help-button'));
     expect(helpButton, findsOneWidget);
+    // 灰底圓角方塊 48×48、白色線條 (i)。
+    expect(tester.getSize(helpButton), const Size(48, 48));
+    final fab = tester.widget<FloatingActionButton>(helpButton);
+    expect(fab.backgroundColor, AppColors.trackMuted);
+    expect(fab.foregroundColor, Colors.white);
+    expect(fab.shape, isA<RoundedRectangleBorder>());
+    expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
 
     await tester.tap(helpButton);
     await tester.pumpAndSettle();
 
     expect(find.text('操作說明'), findsOneWidget);
-    expect(find.text('長按首頁中的任一清單卡片，即可開啟清單操作選單。'), findsOneWidget);
+    expect(find.text('點清單卡片右上角的「⋯」或長按卡片，即可開啟清單操作選單。'), findsOneWidget);
     expect(find.text('重新命名'), findsOneWidget);
     expect(find.text('複製清單'), findsOneWidget);
     expect(find.text('刪除清單'), findsOneWidget);
@@ -507,7 +515,9 @@ void main() {
 
     expect(find.textContaining('最重項目 主背包 45L'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('分享'));
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('分享'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('使用系統分享'));
     await tester.pumpAndSettle();
