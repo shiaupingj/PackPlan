@@ -47,6 +47,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
 
   final _scrollController = ScrollController();
 
+  /// 「放置位置」右側的搜尋:開啟時依項目名稱篩選下方清單(與分頁條件同時套用)。
+  bool _searching = false;
+  final _searchController = TextEditingController();
+  String get _searchQuery => _searchController.text.trim().toLowerCase();
+
   /// 「放置位置」區塊剛好固定在頂端時的捲動位置(= 它上方內容的總高度)。
   /// 每次排版時由區塊前的 [SliverLayoutBuilder] 更新。
   double _placementPinnedOffset = 0;
@@ -60,11 +65,31 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   void _selectPlacement(String? value) {
     final keepPinned = _placementPinned;
     setState(() => _placement = value);
-    if (!keepPinned) return;
+    if (keepPinned) _pinPlacementAfterLayout();
+  }
+
+  void _pinPlacementAfterLayout() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(_placementPinnedOffset);
     });
+  }
+
+  /// 開啟搜尋時把「放置位置」固定到頂端,鍵盤彈出後下方仍看得到結果。
+  void _openSearch() {
+    setState(() => _searching = true);
+    _pinPlacementAfterLayout();
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    setState(() => _searching = false);
+  }
+
+  void _handleSearchChanged(String _) {
+    final keepPinned = _placementPinned;
+    setState(() {});
+    if (keepPinned) _pinPlacementAfterLayout();
   }
 
   @override
@@ -82,6 +107,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   void dispose() {
     _references?.removeListener(_handleReferencesChanged);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -108,9 +134,16 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final suggestions = WeightCalculator.suggestions(list);
     final containers = _containerItems(list.items);
     final placement = _validPlacement(list.items, containers);
+    final query = _searching ? _searchQuery : '';
     final visibleGroups = {
       for (final entry in groupedItems.entries)
-        if (entry.value.where((item) => _inPlacement(item, placement)).toList()
+        if (entry.value
+                .where((item) => _inPlacement(item, placement))
+                .where(
+                  (item) =>
+                      query.isEmpty || item.name.toLowerCase().contains(query),
+                )
+                .toList()
             case final items when items.isNotEmpty)
           entry.key: items,
     };
@@ -255,6 +288,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                   showWeight: list.showWeight,
                   selected: placement,
                   onSelected: _selectPlacement,
+                  searching: _searching,
+                  searchController: _searchController,
+                  onOpenSearch: _openSearch,
+                  onCloseSearch: _closeSearch,
+                  onSearchChanged: _handleSearchChanged,
                 ),
               ),
             ),
@@ -268,6 +306,20 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             ),
             sliver: SliverList.list(
               children: [
+                if (query.isNotEmpty && visibleGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xl,
+                    ),
+                    child: Text(
+                      '找不到「${_searchController.text.trim()}」',
+                      key: const ValueKey('item-search-empty'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                  ),
                 ...visibleGroups.entries.map(
                   (entry) => _CategorySection(
                     name: entry.key,
@@ -299,8 +351,10 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                           ? null
                           : placement,
                     ),
-                    // 篩選某個放置位置時只看到部分項目,不開放拖曳排序。
-                    canReorder: placement == null,
+                    // 篩選放置位置或搜尋時只看到部分項目,不開放拖曳排序。
+                    canReorder: placement == null && query.isEmpty,
+                    // 搜尋時結果一律展開,不受原本收合狀態影響。
+                    forceExpanded: query.isNotEmpty,
                     onReorder: (items) =>
                         repository.reorderItems(list.id, items),
                     onRename: () =>
@@ -1070,6 +1124,11 @@ class _ContainerSummarySection extends StatelessWidget {
     required this.showWeight,
     required this.selected,
     required this.onSelected,
+    required this.searching,
+    required this.searchController,
+    required this.onOpenSearch,
+    required this.onCloseSearch,
+    required this.onSearchChanged,
   });
 
   final List<PackItem> items;
@@ -1078,6 +1137,11 @@ class _ContainerSummarySection extends StatelessWidget {
   final bool showWeight;
   final String? selected;
   final ValueChanged<String?> onSelected;
+  final bool searching;
+  final TextEditingController searchController;
+  final VoidCallback onOpenSearch;
+  final VoidCallback onCloseSearch;
+  final ValueChanged<String> onSearchChanged;
 
   String _gram(int gram) => WeightFormatters.gram(gram, unit: unit);
 
@@ -1142,8 +1206,62 @@ class _ContainerSummarySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('放置位置', style: t.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
+        // 標題列固定 40 高:平常是「放置位置 + 放大鏡」,搜尋時換成輸入框。
+        SizedBox(
+          height: 40,
+          child: searching
+              ? TextField(
+                  key: const ValueKey('item-search-field'),
+                  controller: searchController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onChanged: onSearchChanged,
+                  style: t.bodyLarge,
+                  decoration: InputDecoration(
+                    hintText: '搜尋項目名稱',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: context.palette.textSecondary,
+                    ),
+                    suffixIcon: IconButton(
+                      key: const ValueKey('item-search-close'),
+                      tooltip: '關閉搜尋',
+                      icon: Icon(
+                        Icons.close,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: onCloseSearch,
+                    ),
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(child: Text('放置位置', style: t.titleMedium)),
+                    IconButton(
+                      key: const ValueKey('item-search-open'),
+                      tooltip: '搜尋項目',
+                      // 圖示貼齊右側內容邊界(與下方卡片右緣對齊),點擊範圍仍有 40×40。
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      alignment: Alignment.centerRight,
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: Icon(
+                        Icons.search,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: onOpenSearch,
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
         DecoratedBox(
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: context.palette.border)),
@@ -1269,6 +1387,7 @@ class _CategorySection extends StatelessWidget {
     required this.canReorder,
     required this.onReorder,
     required this.onRename,
+    this.forceExpanded = false,
   });
 
   final String name;
@@ -1284,6 +1403,7 @@ class _CategorySection extends StatelessWidget {
   final bool canReorder;
   final ValueChanged<List<PackItem>> onReorder;
   final VoidCallback onRename;
+  final bool forceExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -1299,7 +1419,10 @@ class _CategorySection extends StatelessWidget {
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: _ExpandedStateBuilder(
+            // 換 key 讓搜尋開始/結束時重建展開狀態。
+            key: ValueKey(forceExpanded),
             storageId: 'category-expanded-$name',
+            persist: !forceExpanded,
             builder: (context, expanded, onExpansionChanged) => ExpansionTile(
               initiallyExpanded: expanded,
               onExpansionChanged: onExpansionChanged,
@@ -2496,9 +2619,17 @@ String? _reductionBadge(ItemNecessity necessity) {
 /// 記住分類卡片的展開狀態,讓右上箭頭跟著切換。
 /// 存在頁面的 PageStorage:分類捲出畫面再回來,展開/收合不會被重設。
 class _ExpandedStateBuilder extends StatefulWidget {
-  const _ExpandedStateBuilder({required this.storageId, required this.builder});
+  const _ExpandedStateBuilder({
+    super.key,
+    required this.storageId,
+    required this.builder,
+    this.persist = true,
+  });
 
   final String storageId;
+
+  /// false 時一律從展開開始,也不記住這次的收合(搜尋結果用)。
+  final bool persist;
   final Widget Function(
     BuildContext context,
     bool expanded,
@@ -2512,14 +2643,16 @@ class _ExpandedStateBuilder extends StatefulWidget {
 
 class _ExpandedStateBuilderState extends State<_ExpandedStateBuilder> {
   late bool _expanded =
-      PageStorage.maybeOf(
-            context,
-          )?.readState(context, identifier: widget.storageId)
-          as bool? ??
-      true;
+      !widget.persist ||
+      (PageStorage.maybeOf(
+                context,
+              )?.readState(context, identifier: widget.storageId)
+              as bool? ??
+          true);
 
   void _handleChanged(bool expanded) {
     setState(() => _expanded = expanded);
+    if (!widget.persist) return;
     PageStorage.maybeOf(
       context,
     )?.writeState(context, expanded, identifier: widget.storageId);
