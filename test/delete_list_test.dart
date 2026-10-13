@@ -58,44 +58,53 @@ void main() {
     expect(find.text('登山計劃'), findsOneWidget);
   });
 
-  testWidgets('清單內頁「⋯」選單含分享、重新命名、刪除清單', (tester) async {
+  testWidgets('清單內頁右上直接是分享按鈕,沒有「⋯」選單', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.text('登山計劃'));
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('分享'), findsNothing);
-    expect(find.byTooltip('重新命名'), findsNothing);
-    await tester.tap(find.byTooltip('更多'));
+    expect(find.byTooltip('更多'), findsNothing);
+    await tester.tap(find.byTooltip('分享'));
     await tester.pumpAndSettle();
-    expect(find.text('分享'), findsOneWidget);
-    expect(find.text('重新命名'), findsOneWidget);
-    expect(find.text('刪除清單'), findsOneWidget);
+    expect(find.text('使用系統分享'), findsOneWidget);
+  });
 
-    await tester.tap(find.text('重新命名'));
+  testWidgets('旅程設定改名稱後儲存', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('登山計劃'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '雪山');
+
+    await tester.tap(find.byTooltip('旅程設定'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('trip-settings-title')),
+      '雪山',
+    );
     await tester.tap(find.widgetWithText(FilledButton, '儲存'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '雪山'), findsOneWidget);
   });
 
-  testWidgets('清單內頁「⋯」刪除:確認後回首頁且清單消失', (tester) async {
+  testWidgets('旅程設定「刪除」:確認後回首頁且清單消失', (tester) async {
     final repository = await pumpApp(tester);
     final before = repository.lists.length;
     await tester.tap(find.text('登山計劃'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('更多'));
+    final delete = find.byKey(const ValueKey('trip-settings-delete'));
+    await tester.tap(find.byTooltip('旅程設定'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('刪除清單'));
+    await tester.tap(delete);
     await tester.pumpAndSettle();
+    expect(find.text('刪除清單？'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AppBar, '登山計劃'), findsOneWidget);
+    expect(repository.lists.length, before);
 
-    await tester.tap(find.byTooltip('更多'));
+    await tester.tap(find.byTooltip('旅程設定'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('刪除清單'));
+    await tester.tap(delete);
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '刪除'));
     await tester.pumpAndSettle();
@@ -105,5 +114,26 @@ void main() {
     expect(find.text('找不到這份清單'), findsNothing);
     expect(find.text('清單已刪除'), findsOneWidget);
     expect(repository.lists.length, before - 1);
+  });
+
+  testWidgets('對話框按鈕:取消灰底、儲存與取消同為 12 圓角', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('旅程設定'));
+    await tester.pumpAndSettle();
+
+    BorderRadiusGeometry? radiusOf(ButtonStyleButton button) =>
+        (button.style?.shape?.resolve({}) as RoundedRectangleBorder?)
+            ?.borderRadius;
+    final cancel = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, '取消'),
+    );
+    final save = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '儲存'),
+    );
+    expect(cancel.style?.backgroundColor?.resolve({}), isNotNull);
+    expect(radiusOf(cancel), BorderRadius.circular(12));
+    expect(radiusOf(save), BorderRadius.circular(12));
   });
 }

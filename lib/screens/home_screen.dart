@@ -5,6 +5,7 @@ import '../models/pack_list.dart';
 import '../services/trip_formatters.dart';
 import '../theme/app_dimens.dart';
 import '../widgets/app_buttons.dart';
+import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 import '../widgets/delete_list_dialog.dart';
 import '../widgets/pack_list_card.dart';
@@ -203,13 +204,12 @@ class HomeScreen extends StatelessWidget {
             onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
           ),
           actions: [
-            TextButton(
+            AppDialogCancelButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
             ),
-            FilledButton(
+            AppDialogConfirmButton(
               onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('儲存'),
+              label: '儲存',
             ),
           ],
         );

@@ -8,6 +8,7 @@ class WeightSummary {
     required this.totalGram,
     required this.baseGram,
     required this.wornGram,
+    this.vehicleGram = 0,
     required this.packedGram,
     required this.limitGram,
     required this.checkedCount,
@@ -17,6 +18,7 @@ class WeightSummary {
   final int totalGram;
   final int baseGram;
   final int wornGram;
+  final int vehicleGram;
   final int packedGram;
   final int limitGram;
   final int checkedCount;
@@ -49,6 +51,7 @@ abstract final class WeightCalculator {
       totalGram: list.totalWeightGram,
       baseGram: list.baseWeightGram,
       wornGram: list.wornWeightGram,
+      vehicleGram: list.vehicleWeightGram,
       packedGram: list.packedWeightGram,
       limitGram: list.weightLimitGram,
       checkedCount: list.checkedCount,
@@ -101,7 +104,7 @@ abstract final class WeightCalculator {
 
   static PackItem? heaviestItem(PackList list) {
     final candidates = list.items
-        .where((item) => item.weightClass != WeightClass.worn)
+        .where((item) => item.weightClass == WeightClass.packed)
         .toList();
     if (candidates.isEmpty) return null;
     final sorted = [...candidates]

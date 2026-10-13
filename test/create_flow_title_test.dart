@@ -136,6 +136,53 @@ void main() {
     expect(find.text('顯示重量'), findsOneWidget);
   });
 
+  testWidgets('旅程設定:天數與顯示重量同一行、天氣四個一行、上限數值靠右', (tester) async {
+    // 窄手機寬度(360 寬)。
+    tester.view
+      ..physicalSize = const Size(1080, 2340)
+      ..devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('旅程設定'));
+    await tester.pumpAndSettle();
+
+    double centerY(Finder finder) => tester.getCenter(finder).dy;
+
+    final days = find.byKey(const ValueKey('trip-settings-days'));
+    final showWeight = find.byKey(const ValueKey('trip-settings-show-weight'));
+    expect((centerY(days) - centerY(showWeight)).abs(), lessThan(4));
+    expect(
+      tester.getCenter(showWeight).dx,
+      greaterThan(tester.getCenter(days).dx),
+    );
+
+    final chipTops = WeatherCondition.values
+        .map(
+          (weather) => tester
+              .getTopLeft(find.byKey(ValueKey('weather-chip-${weather.name}')))
+              .dy,
+        )
+        .toSet();
+    expect(chipTops, hasLength(1));
+
+    final limit = find.byKey(const ValueKey('trip-settings-weight-limit'));
+    final slider = find.byKey(
+      const ValueKey('trip-settings-weight-limit-slider'),
+    );
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    expect((centerY(find.text('重量上限')) - centerY(limit)).abs(), lessThan(8));
+    expect(
+      tester.getTopRight(limit).dx,
+      closeTo(tester.getTopRight(slider).dx, 32),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('城市旅遊 Step 3:指定項目預設不勾,其餘預設勾', (tester) async {
     await openCreateFlow(tester);
     await tapVisible(tester, find.text('城市旅遊'));

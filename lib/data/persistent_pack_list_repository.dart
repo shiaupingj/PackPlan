@@ -91,12 +91,14 @@ class PersistentPackListRepository extends ChangeNotifier
     required int days,
     required Set<WeatherCondition> weatherConditions,
     bool? showWeight,
+    int? weightLimitGram,
   }) {
     _delegate.updateTripSettings(
       listId,
       days: days,
       weatherConditions: weatherConditions,
       showWeight: showWeight,
+      weightLimitGram: weightLimitGram,
     );
   }
 

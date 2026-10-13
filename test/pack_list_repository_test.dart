@@ -255,6 +255,36 @@ void main() {
     );
   });
 
+  test('trip settings update the per-list weight limit', () {
+    final repository = InMemoryPackListRepository();
+    final list = repository.lists.first;
+    final otherLimits = {
+      for (final other in repository.lists.skip(1))
+        other.id: other.weightLimitGram,
+    };
+
+    repository.updateTripSettings(
+      list.id,
+      days: list.days,
+      weatherConditions: list.weatherConditions,
+      weightLimitGram: 9500,
+    );
+    expect(repository.findById(list.id)!.weightLimitGram, 9500);
+
+    // 沒帶或不合理的值保留原上限。
+    repository.updateTripSettings(
+      list.id,
+      days: list.days,
+      weatherConditions: list.weatherConditions,
+      weightLimitGram: 0,
+    );
+    expect(repository.findById(list.id)!.weightLimitGram, 9500);
+    expect({
+      for (final other in repository.lists.skip(1))
+        other.id: other.weightLimitGram,
+    }, otherLimits);
+  });
+
   test('duplicate and delete list update list collection', () {
     final repository = InMemoryPackListRepository();
     final sourceId = repository.lists.first.id;

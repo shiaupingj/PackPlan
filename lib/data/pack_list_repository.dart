@@ -55,6 +55,7 @@ abstract interface class PackListRepository extends Listenable {
     required int days,
     required Set<WeatherCondition> weatherConditions,
     bool? showWeight,
+    int? weightLimitGram,
   });
   bool renameCategory(String listId, String currentName, String newName);
   void reorderCategories(String listId, List<String> orderedCategoryNames);
@@ -231,6 +232,7 @@ class InMemoryPackListRepository extends ChangeNotifier
     required int days,
     required Set<WeatherCondition> weatherConditions,
     bool? showWeight,
+    int? weightLimitGram,
   }) {
     final listIndex = _lists.indexWhere((list) => list.id == listId);
     if (listIndex == -1 || weatherConditions.isEmpty) return;
@@ -250,6 +252,9 @@ class InMemoryPackListRepository extends ChangeNotifier
       nights: nights,
       weatherConditions: weatherConditions,
       showWeight: showWeight ?? list.showWeight,
+      weightLimitGram: weightLimitGram != null && weightLimitGram > 0
+          ? weightLimitGram
+          : list.weightLimitGram,
       items: adjustedItems,
       updatedAt: DateTime.now(),
     );

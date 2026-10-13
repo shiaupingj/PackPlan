@@ -17,6 +17,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_buttons.dart';
+import '../widgets/app_dialog_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
 import '../widgets/weight_reference_sheets.dart';
@@ -36,7 +37,8 @@ class PackDetailScreen extends StatefulWidget {
 class _PackDetailScreenState extends State<PackDetailScreen> {
   bool _ulMode = false;
 
-  /// 放置位置分頁:null 為全部,否則是容器 id、[_unassignedTab] 或 [_wornTab]。
+  /// 放置位置分頁:null 為全部,否則是容器 id、[_unassignedTab]、[_wornTab]
+  /// 或 [_vehicleTab]。
   String? _placement;
   WeightReferenceRepository? _references;
 
@@ -44,6 +46,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   PackList? _deletedList;
 
   final _scrollController = ScrollController();
+
+  /// 「放置位置」右側的搜尋:開啟時依項目名稱篩選下方清單(與分頁條件同時套用)。
+  bool _searching = false;
+  final _searchController = TextEditingController();
+  String get _searchQuery => _searchController.text.trim().toLowerCase();
 
   /// 「放置位置」區塊剛好固定在頂端時的捲動位置(= 它上方內容的總高度)。
   /// 每次排版時由區塊前的 [SliverLayoutBuilder] 更新。
@@ -58,11 +65,31 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   void _selectPlacement(String? value) {
     final keepPinned = _placementPinned;
     setState(() => _placement = value);
-    if (!keepPinned) return;
+    if (keepPinned) _pinPlacementAfterLayout();
+  }
+
+  void _pinPlacementAfterLayout() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(_placementPinnedOffset);
     });
+  }
+
+  /// 開啟搜尋時把「放置位置」固定到頂端,鍵盤彈出後下方仍看得到結果。
+  void _openSearch() {
+    setState(() => _searching = true);
+    _pinPlacementAfterLayout();
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    setState(() => _searching = false);
+  }
+
+  void _handleSearchChanged(String _) {
+    final keepPinned = _placementPinned;
+    setState(() {});
+    if (keepPinned) _pinPlacementAfterLayout();
   }
 
   @override
@@ -80,6 +107,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
   void dispose() {
     _references?.removeListener(_handleReferencesChanged);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -106,9 +134,16 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final suggestions = WeightCalculator.suggestions(list);
     final containers = _containerItems(list.items);
     final placement = _validPlacement(list.items, containers);
+    final query = _searching ? _searchQuery : '';
     final visibleGroups = {
       for (final entry in groupedItems.entries)
-        if (entry.value.where((item) => _inPlacement(item, placement)).toList()
+        if (entry.value
+                .where((item) => _inPlacement(item, placement))
+                .where(
+                  (item) =>
+                      query.isEmpty || item.name.toLowerCase().contains(query),
+                )
+                .toList()
             case final items when items.isNotEmpty)
           entry.key: items,
     };
@@ -136,41 +171,14 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
           IconButton(
             tooltip: '旅程設定',
             onPressed: () => _showTripSettingsEditor(context, list),
-            icon: const Icon(Icons.tune),
+            icon: const Icon(Icons.edit_outlined),
           ),
-          PopupMenuButton<_ListMenuAction>(
-            key: const ValueKey('list-more-menu'),
-            tooltip: '更多',
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (action) {
-              switch (action) {
-                case _ListMenuAction.share:
-                  _showShareSheet(context, list, settings.weightUnit);
-                case _ListMenuAction.rename:
-                  _showRenameDialog(context, list);
-                case _ListMenuAction.delete:
-                  _requestDeleteList(context, list);
-              }
-            },
-            itemBuilder: (menuContext) => [
-              const PopupMenuItem(
-                value: _ListMenuAction.share,
-                child: _ListMenuRow(icon: Icons.ios_share, label: '分享'),
-              ),
-              const PopupMenuItem(
-                value: _ListMenuAction.rename,
-                child: _ListMenuRow(icon: Icons.edit_outlined, label: '重新命名'),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem(
-                value: _ListMenuAction.delete,
-                child: _ListMenuRow(
-                  icon: Icons.delete_outline,
-                  label: '刪除清單',
-                  color: menuContext.palette.weightOver,
-                ),
-              ),
-            ],
+          IconButton(
+            key: const ValueKey('list-share'),
+            tooltip: '分享',
+            onPressed: () =>
+                _showShareSheet(context, list, settings.weightUnit),
+            icon: const Icon(Icons.ios_share),
           ),
         ],
       ),
@@ -280,6 +288,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                   showWeight: list.showWeight,
                   selected: placement,
                   onSelected: _selectPlacement,
+                  searching: _searching,
+                  searchController: _searchController,
+                  onOpenSearch: _openSearch,
+                  onCloseSearch: _closeSearch,
+                  onSearchChanged: _handleSearchChanged,
                 ),
               ),
             ),
@@ -293,6 +306,20 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
             ),
             sliver: SliverList.list(
               children: [
+                if (query.isNotEmpty && visibleGroups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xl,
+                    ),
+                    child: Text(
+                      '找不到「${_searchController.text.trim()}」',
+                      key: const ValueKey('item-search-empty'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                  ),
                 ...visibleGroups.entries.map(
                   (entry) => _CategorySection(
                     name: entry.key,
@@ -320,12 +347,14 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                       categoryNames: categoryNames,
                       categoryIdByName: categoryIdByName,
                       initialCategoryName: categoryName,
-                      initialContainerId: _isContainerTab(placement)
-                          ? placement
-                          : null,
+                      initialPlacement: placement == _unassignedTab
+                          ? null
+                          : placement,
                     ),
-                    // 篩選某個放置位置時只看到部分項目,不開放拖曳排序。
-                    canReorder: placement == null,
+                    // 篩選放置位置或搜尋時只看到部分項目,不開放拖曳排序。
+                    canReorder: placement == null && query.isEmpty,
+                    // 搜尋時結果一律展開,不受原本收合狀態影響。
+                    forceExpanded: query.isNotEmpty,
                     onReorder: (items) =>
                         repository.reorderItems(list.id, items),
                     onRename: () =>
@@ -360,6 +389,10 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       _wornTab =>
         items.any((item) => item.weightClass == WeightClass.worn)
             ? _wornTab
+            : null,
+      _vehicleTab =>
+        items.any((item) => item.weightClass == WeightClass.vehicle)
+            ? _vehicleTab
             : null,
       final id => containers.any((c) => c.id == id) ? id : null,
     };
@@ -485,40 +518,6 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     );
   }
 
-  Future<void> _showRenameDialog(BuildContext context, PackList list) async {
-    final controller = TextEditingController(text: list.title);
-    final repository = AppScope.of(context);
-    final title = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          titlePadding: AppDialogTitle.padding,
-          title: const AppDialogTitle('重新命名清單'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(labelText: '清單名稱'),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('儲存'),
-            ),
-          ],
-        );
-      },
-    );
-    await _waitForDialogToClose();
-    controller.dispose();
-    if (!context.mounted || title == null || title.trim().isEmpty) return;
-    repository.renameList(list.id, title);
-  }
-
   Future<void> _requestDeleteList(BuildContext context, PackList list) async {
     final confirmed = await confirmDeleteList(context, list.title);
     if (!confirmed || !context.mounted) return;
@@ -527,10 +526,6 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     AppScope.of(context).deleteList(list.id);
     Navigator.of(context).pop();
     messenger.showSnackBar(const SnackBar(content: Text('清單已刪除')));
-  }
-
-  Future<void> _waitForDialogToClose() {
-    return Future<void>.delayed(const Duration(milliseconds: 220));
   }
 
   Future<void> _showTripSettingsEditor(
@@ -545,9 +540,14 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         days: list.days,
         weatherConditions: list.weatherConditions,
         showWeight: list.showWeight,
+        weightLimitGram: list.weightLimitGram,
       ),
     );
-    if (result == null) return;
+    if (result == null || !context.mounted) return;
+    if (result.deleteList) {
+      await _requestDeleteList(context, list);
+      return;
+    }
     if (result.title.trim() != list.title) {
       repository.renameList(list.id, result.title);
     }
@@ -556,6 +556,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       days: result.days,
       weatherConditions: result.weatherConditions,
       showWeight: result.showWeight,
+      weightLimitGram: result.weightLimitGram,
     );
   }
 
@@ -630,7 +631,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     required List<String> categoryNames,
     required Map<String, String> categoryIdByName,
     String? initialCategoryName,
-    String? initialContainerId,
+    String? initialPlacement,
   }) async {
     final repository = AppScope.of(context);
     final result = await showDialog<_ItemEditorResult>(
@@ -641,7 +642,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         categoryNames: categoryNames,
         categoryIdByName: categoryIdByName,
         initialCategoryName: initialCategoryName,
-        initialContainerId: initialContainerId,
+        initialPlacement: initialPlacement,
       ),
     );
     if (result == null) return;
@@ -730,13 +731,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                 : '要刪除「${item.name}」嗎？',
           ),
           actions: [
-            TextButton(
+            AppDialogCancelButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
             ),
-            FilledButton(
+            AppDialogConfirmButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('確定刪除'),
+              label: '確定刪除',
             ),
           ],
         );
@@ -775,6 +775,12 @@ class _SharePreview extends StatelessWidget {
           if (summary.wornGram > 0)
             Text(
               '穿戴 ${WeightFormatters.gram(summary.wornGram, unit: unit)}'
+              '（不計背重）',
+              style: t.bodyMedium,
+            ),
+          if (summary.vehicleGram > 0)
+            Text(
+              '車上 ${WeightFormatters.gram(summary.vehicleGram, unit: unit)}'
               '（不計背重）',
               style: t.bodyMedium,
             ),
@@ -872,6 +878,14 @@ class _WeightHeader extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 '穿戴 ${WeightFormatters.gram(summary.wornGram, unit: unit)}'
+                '（不計背重）',
+                style: t.bodySmall?.copyWith(color: AppColors.primary),
+              ),
+            ],
+            if (summary.vehicleGram > 0) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '車上 ${WeightFormatters.gram(summary.vehicleGram, unit: unit)}'
                 '（不計背重）',
                 style: t.bodySmall?.copyWith(color: AppColors.primary),
               ),
@@ -1077,13 +1091,18 @@ class _UlModeRow extends StatelessWidget {
 
 const _unassignedTab = '__unassigned__';
 const _wornTab = '__worn__';
+const _vehicleTab = '__vehicle__';
 
-bool _isContainerTab(String? placement) =>
-    placement != null && placement != _unassignedTab && placement != _wornTab;
+/// 不放進容器、也不計入背重的放置位置。
+WeightClass? _offPackWeightClass(String? placement) => switch (placement) {
+  _wornTab => WeightClass.worn,
+  _vehicleTab => WeightClass.vehicle,
+  _ => null,
+};
 
 bool _isUnassigned(PackItem item) =>
     !item.isContainer &&
-    item.weightClass != WeightClass.worn &&
+    item.weightClass == WeightClass.packed &&
     item.containerItemId == null;
 
 /// 項目是否屬於目前的放置位置分頁(容器分頁包含容器本身)。
@@ -1091,10 +1110,11 @@ bool _inPlacement(PackItem item, String? placement) => switch (placement) {
   null => true,
   _unassignedTab => _isUnassigned(item),
   _wornTab => item.weightClass == WeightClass.worn,
+  _vehicleTab => item.weightClass == WeightClass.vehicle,
   final id => item.id == id || item.containerItemId == id,
 };
 
-/// 放置位置:以分頁切換「全部 / 各容器 / 未放入 / 身上穿戴」,
+/// 放置位置:以分頁切換「全部 / 各容器 / 未放入 / 身上穿戴 / 放車上」,
 /// 下方清單只列出該位置的項目,項目本身就不用再標示「放在哪」。
 class _ContainerSummarySection extends StatelessWidget {
   const _ContainerSummarySection({
@@ -1104,6 +1124,11 @@ class _ContainerSummarySection extends StatelessWidget {
     required this.showWeight,
     required this.selected,
     required this.onSelected,
+    required this.searching,
+    required this.searchController,
+    required this.onOpenSearch,
+    required this.onCloseSearch,
+    required this.onSearchChanged,
   });
 
   final List<PackItem> items;
@@ -1112,6 +1137,11 @@ class _ContainerSummarySection extends StatelessWidget {
   final bool showWeight;
   final String? selected;
   final ValueChanged<String?> onSelected;
+  final bool searching;
+  final TextEditingController searchController;
+  final VoidCallback onOpenSearch;
+  final VoidCallback onCloseSearch;
+  final ValueChanged<String> onSearchChanged;
 
   String _gram(int gram) => WeightFormatters.gram(gram, unit: unit);
 
@@ -1125,6 +1155,9 @@ class _ContainerSummarySection extends StatelessWidget {
     final worn = items
         .where((item) => item.weightClass == WeightClass.worn)
         .toList();
+    final vehicle = items
+        .where((item) => item.weightClass == WeightClass.vehicle)
+        .toList();
     List<PackItem> contentsOf(PackItem container) =>
         items.where((item) => item.containerItemId == container.id).toList();
 
@@ -1134,6 +1167,7 @@ class _ContainerSummarySection extends StatelessWidget {
         (container.id, container.name, contentsOf(container).length),
       if (unassigned.isNotEmpty) (_unassignedTab, '未放入', unassigned.length),
       if (worn.isNotEmpty) (_wornTab, '身上穿戴', worn.length),
+      if (vehicle.isNotEmpty) (_vehicleTab, '放車上', vehicle.length),
     ];
 
     final String detail;
@@ -1151,6 +1185,11 @@ class _ContainerSummarySection extends StatelessWidget {
             ? '身上穿戴 ${worn.length} 項 · ${_gram(_totalWeight(worn))}（不計背重）'
             : '身上穿戴 ${worn.length} 項（不計背重）';
         detailColor = AppColors.primary;
+      case _vehicleTab:
+        detail = showWeight
+            ? '放車上 ${vehicle.length} 項 · ${_gram(_totalWeight(vehicle))}（不計背重）'
+            : '放車上 ${vehicle.length} 項（不計背重）';
+        detailColor = AppColors.primary;
       case final id:
         final container = containers.firstWhere((c) => c.id == id);
         final contents = contentsOf(container);
@@ -1167,8 +1206,62 @@ class _ContainerSummarySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('放置位置', style: t.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
+        // 標題列固定 40 高:平常是「放置位置 + 放大鏡」,搜尋時換成輸入框。
+        SizedBox(
+          height: 40,
+          child: searching
+              ? TextField(
+                  key: const ValueKey('item-search-field'),
+                  controller: searchController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onChanged: onSearchChanged,
+                  style: t.bodyLarge,
+                  decoration: InputDecoration(
+                    hintText: '搜尋項目名稱',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: context.palette.textSecondary,
+                    ),
+                    suffixIcon: IconButton(
+                      key: const ValueKey('item-search-close'),
+                      tooltip: '關閉搜尋',
+                      icon: Icon(
+                        Icons.close,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: onCloseSearch,
+                    ),
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(child: Text('放置位置', style: t.titleMedium)),
+                    IconButton(
+                      key: const ValueKey('item-search-open'),
+                      tooltip: '搜尋項目',
+                      // 圖示貼齊右側內容邊界(與下方卡片右緣對齊),點擊範圍仍有 40×40。
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      alignment: Alignment.centerRight,
+                      style: IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: Icon(
+                        Icons.search,
+                        color: context.palette.textSecondary,
+                      ),
+                      onPressed: onOpenSearch,
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
         DecoratedBox(
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: context.palette.border)),
@@ -1294,6 +1387,7 @@ class _CategorySection extends StatelessWidget {
     required this.canReorder,
     required this.onReorder,
     required this.onRename,
+    this.forceExpanded = false,
   });
 
   final String name;
@@ -1309,22 +1403,26 @@ class _CategorySection extends StatelessWidget {
   final bool canReorder;
   final ValueChanged<List<PackItem>> onReorder;
   final VoidCallback onRename;
+  final bool forceExpanded;
 
   @override
   Widget build(BuildContext context) {
-    final carriedGram = items
-        .where((item) => item.weightClass != WeightClass.worn)
+    int gramOf(WeightClass weightClass) => items
+        .where((item) => item.weightClass == weightClass)
         .fold(0, (total, item) => total + item.totalWeightGram);
-    final wornGram = items
-        .where((item) => item.weightClass == WeightClass.worn)
-        .fold(0, (total, item) => total + item.totalWeightGram);
+    final carriedGram = gramOf(WeightClass.packed);
+    final wornGram = gramOf(WeightClass.worn);
+    final vehicleGram = gramOf(WeightClass.vehicle);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Card(
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: _ExpandedStateBuilder(
+            // 換 key 讓搜尋開始/結束時重建展開狀態。
+            key: ValueKey(forceExpanded),
             storageId: 'category-expanded-$name',
+            persist: !forceExpanded,
             builder: (context, expanded, onExpansionChanged) => ExpansionTile(
               initiallyExpanded: expanded,
               onExpansionChanged: onExpansionChanged,
@@ -1363,9 +1461,14 @@ class _CategorySection extends StatelessWidget {
               ),
               subtitle: showWeight
                   ? Text(
-                      wornGram > 0
-                          ? '背重 ${WeightFormatters.gram(carriedGram, unit: unit)} · '
-                                '穿戴 ${WeightFormatters.gram(wornGram, unit: unit)}'
+                      wornGram > 0 || vehicleGram > 0
+                          ? [
+                              '背重 ${WeightFormatters.gram(carriedGram, unit: unit)}',
+                              if (wornGram > 0)
+                                '穿戴 ${WeightFormatters.gram(wornGram, unit: unit)}',
+                              if (vehicleGram > 0)
+                                '車上 ${WeightFormatters.gram(vehicleGram, unit: unit)}',
+                            ].join(' · ')
                           : WeightFormatters.gram(carriedGram, unit: unit),
                     )
                   : null,
@@ -1424,7 +1527,7 @@ class _CategorySection extends StatelessWidget {
                                     ? _reductionBadge(item.necessity)
                                     : null),
                             badgeFilled:
-                                item.weightClass == WeightClass.worn ||
+                                item.weightClass != WeightClass.packed ||
                                 (item.weightClass == WeightClass.packed &&
                                     item.necessity == ItemNecessity.luxury),
                             onChanged: (checked) => onChanged(item, checked),
@@ -1523,13 +1626,25 @@ class _TripSettingsResult {
     required this.days,
     required this.weatherConditions,
     required this.showWeight,
-  });
+    required this.weightLimitGram,
+  }) : deleteList = false;
+
+  /// 按了「刪除」:改由呼叫端確認後刪除整份清單,其他欄位不套用。
+  const _TripSettingsResult.delete()
+    : title = '',
+      days = 0,
+      weatherConditions = const {},
+      showWeight = false,
+      weightLimitGram = 0,
+      deleteList = true;
 
   /// 空白代表不改名(renameList 會忽略空字串)。
   final String title;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final bool showWeight;
+  final int weightLimitGram;
+  final bool deleteList;
 }
 
 class _TripSettingsDialog extends StatefulWidget {
@@ -1538,12 +1653,14 @@ class _TripSettingsDialog extends StatefulWidget {
     required this.days,
     required this.weatherConditions,
     required this.showWeight,
+    required this.weightLimitGram,
   });
 
   final String title;
   final int days;
   final Set<WeatherCondition> weatherConditions;
   final bool showWeight;
+  final int weightLimitGram;
 
   @override
   State<_TripSettingsDialog> createState() => _TripSettingsDialogState();
@@ -1554,6 +1671,12 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
   late int _days = widget.days;
   late Set<WeatherCondition> _weatherConditions = {...widget.weatherConditions};
   late bool _showWeight = widget.showWeight;
+  late int _weightLimitGram = widget.weightLimitGram;
+
+  /// 重量上限可調範圍與級距(與設定頁預設上限同為 0.5 kg 一格)。
+  static const _minLimitGram = 1000;
+  static const _maxLimitGram = 30000;
+  static const _limitStepGram = 500;
 
   @override
   void dispose() {
@@ -1580,30 +1703,63 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
               textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('天數', style: t.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
+            // 天數與顯示重量並排兩欄。
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  tooltip: '減少天數',
-                  onPressed: _days <= 1
-                      ? null
-                      : () => setState(() => _days -= 1),
-                  icon: const Icon(Icons.remove),
-                ),
                 Expanded(
-                  child: Text(
-                    '$_days 天',
-                    textAlign: TextAlign.center,
-                    style: t.titleLarge,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('天數', style: t.titleMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: '減少天數',
+                            onPressed: _days <= 1
+                                ? null
+                                : () => setState(() => _days -= 1),
+                            icon: const Icon(Icons.remove),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '$_days 天',
+                              key: const ValueKey('trip-settings-days'),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              style: t.titleLarge,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '增加天數',
+                            onPressed: _days >= 14
+                                ? null
+                                : () => setState(() => _days += 1),
+                            icon: const Icon(Icons.add),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  tooltip: '增加天數',
-                  onPressed: _days >= 14
-                      ? null
-                      : () => setState(() => _days += 1),
-                  icon: const Icon(Icons.add),
+                const SizedBox(width: AppSpacing.md),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('顯示重量', style: t.titleMedium),
+                    const SizedBox(height: AppSpacing.sm),
+                    // 與左欄的 48 高按鈕列垂直置中對齊。
+                    SizedBox(
+                      height: 48,
+                      child: Switch(
+                        key: const ValueKey('trip-settings-show-weight'),
+                        value: _showWeight,
+                        onChanged: (value) =>
+                            setState(() => _showWeight = value),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1611,34 +1767,66 @@ class _TripSettingsDialogState extends State<_TripSettingsDialog> {
             Text('天氣', style: t.titleMedium),
             const SizedBox(height: AppSpacing.sm),
             WeatherChoiceChips(
+              singleRow: true,
               selected: _weatherConditions,
               onChanged: (next) => setState(() => _weatherConditions = next),
             ),
-            const SizedBox(height: AppSpacing.md),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('顯示重量'),
-              value: _showWeight,
-              onChanged: (value) => setState(() => _showWeight = value),
-            ),
+            // 不顯示重量時上限用不到,先收起來(保留原值)。
+            if (_showWeight) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text('重量上限', style: t.titleMedium),
+                  const Spacer(),
+                  Text(
+                    WeightFormatters.gram(
+                      _weightLimitGram,
+                      unit: AppScope.of(context).settings.weightUnit,
+                    ),
+                    key: const ValueKey('trip-settings-weight-limit'),
+                    textAlign: TextAlign.end,
+                    style: t.titleLarge,
+                  ),
+                ],
+              ),
+              Slider(
+                key: const ValueKey('trip-settings-weight-limit-slider'),
+                min: _minLimitGram.toDouble(),
+                max: _maxLimitGram.toDouble(),
+                divisions: (_maxLimitGram - _minLimitGram) ~/ _limitStepGram,
+                value: _weightLimitGram
+                    .clamp(_minLimitGram, _maxLimitGram)
+                    .toDouble(),
+                onChanged: (value) => setState(
+                  () => _weightLimitGram =
+                      (value / _limitStepGram).round() * _limitStepGram,
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+        AppDialogTextButton(
+          key: const ValueKey('trip-settings-delete'),
+          onPressed: () =>
+              Navigator.of(context).pop(const _TripSettingsResult.delete()),
+          label: '刪除',
         ),
-        FilledButton(
+        AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
+        AppDialogConfirmButton(
           onPressed: () => Navigator.of(context).pop(
             _TripSettingsResult(
               title: _titleController.text,
               days: _days,
               weatherConditions: _weatherConditions,
               showWeight: _showWeight,
+              weightLimitGram: _weightLimitGram,
             ),
           ),
-          child: const Text('儲存'),
+          label: '儲存',
         ),
       ],
     );
@@ -1678,13 +1866,10 @@ class _CategoryRenameDialogState extends State<_CategoryRenameDialog> {
         onSubmitted: (value) => Navigator.of(context).pop(value),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
+        AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
+        AppDialogConfirmButton(
           onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('儲存'),
+          label: '儲存',
         ),
       ],
     );
@@ -1736,13 +1921,10 @@ class _CategoryOrderDialogState extends State<_CategoryOrderDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
+        AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
+        AppDialogConfirmButton(
           onPressed: () => Navigator.of(context).pop(_categoryNames),
-          child: const Text('儲存排序'),
+          label: '儲存排序',
         ),
       ],
     );
@@ -1756,7 +1938,7 @@ class _ItemEditorDialog extends StatefulWidget {
     required this.categoryNames,
     required this.categoryIdByName,
     this.initialCategoryName,
-    this.initialContainerId,
+    this.initialPlacement,
   });
 
   final PackItem? item;
@@ -1765,8 +1947,9 @@ class _ItemEditorDialog extends StatefulWidget {
   final Map<String, String> categoryIdByName;
   final String? initialCategoryName;
 
-  /// 新增項目的預設放置位置(從某個放置位置分頁新增時帶入)。
-  final String? initialContainerId;
+  /// 新增項目的預設放置位置(從某個放置位置分頁新增時帶入):
+  /// 容器 id、[_wornTab] 或 [_vehicleTab]。
+  final String? initialPlacement;
 
   @override
   State<_ItemEditorDialog> createState() => _ItemEditorDialogState();
@@ -1793,11 +1976,15 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   late ItemNecessity _necessity =
       widget.item?.necessity ?? ItemNecessity.optional;
   late WeightClass _weightClass =
-      widget.item?.weightClass ?? WeightClass.packed;
+      widget.item?.weightClass ??
+      _offPackWeightClass(widget.initialPlacement) ??
+      WeightClass.packed;
   late bool _isContainer = widget.item?.isContainer ?? false;
   late String? _containerItemId =
       widget.item?.containerItemId ??
-      widget.initialContainerId ??
+      (_offPackWeightClass(widget.initialPlacement) == null
+          ? widget.initialPlacement
+          : null) ??
       _defaultContainerItemId;
   late String _lastCategoryName;
   bool _isAddingCategory = false;
@@ -2046,153 +2233,102 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                     ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<WeightClass>(
-                    value: _weightClass,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: '重量類型'),
-                    items: WeightClass.values
-                        .map(
-                          (weightClass) => DropdownMenuItem(
-                            value: weightClass,
-                            enabled:
-                                weightClass == WeightClass.packed ||
-                                !_mustStayContainer,
-                            child: Text(
-                              weightClass != WeightClass.packed &&
-                                      _mustStayContainer
-                                  ? '${_weightClassLabel(weightClass)}（需保留容器）'
-                                  : _weightClassLabel(weightClass),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _weightClass = value;
-                        if (value != WeightClass.packed) {
-                          _isContainer = false;
-                          if (value == WeightClass.worn) {
-                            _containerItemId = null;
-                          }
-                        }
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: DropdownButtonFormField<ItemNecessity>(
-                    value: _necessity,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: '必要性'),
-                    items: ItemNecessity.values
-                        .map(
-                          (necessity) => DropdownMenuItem(
-                            value: necessity,
-                            child: Text(
-                              _necessityLabel(necessity),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() => _necessity = value);
-                    },
-                  ),
-                ),
-              ],
+            DropdownButtonFormField<ItemNecessity>(
+              value: _necessity,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: '必要性'),
+              items: ItemNecessity.values
+                  .map(
+                    (necessity) => DropdownMenuItem(
+                      value: necessity,
+                      child: Text(
+                        _necessityLabel(necessity),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _necessity = value);
+              },
             ),
-            if (_weightClass == WeightClass.packed) ...[
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(child: _placementField(context)),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(child: _placementField(context)),
+                if (_weightClass == WeightClass.packed) ...[
                   const SizedBox(width: AppSpacing.md),
                   _containerToggle(context),
                 ],
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
       actions: [
         if (widget.item != null &&
             !(widget.item!.isContainer && widget.containers.length <= 1))
-          TextButton(
+          AppDialogTextButton(
             onPressed: () => Navigator.of(
               context,
             ).pop(_ItemEditorResult.delete(widget.item!.id)),
-            child: const Text('刪除'),
+            label: '刪除',
           ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(
-            backgroundColor: context.palette.surfaceElevated,
-            foregroundColor: context.palette.textPrimary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.dialogButton),
-            ),
-          ),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          style: FilledButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.dialogButton),
-            ),
-          ),
-          child: const Text('儲存'),
-        ),
+        AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
+        AppDialogConfirmButton(onPressed: _save, label: '儲存'),
       ],
     );
   }
 
-  /// 清單中唯一的容器:重量類型不能改成穿戴。
-  bool get _mustStayContainer =>
-      widget.item?.isContainer == true && widget.containers.length <= 1;
-
-  /// 放置位置;本身是容器時不能再放進別的容器,只顯示說明。
+  /// 放置位置:各容器、未指定(皆計入背重),或身上穿戴、放車上(不計背重)。
+  /// 本身是容器時不能再放進別的地方,只顯示說明。
   Widget _placementField(BuildContext context) {
-    if (_isContainer || _availableContainers.isEmpty) {
+    if (_isContainer) {
       return InputDecorator(
         decoration: const InputDecoration(labelText: '放置位置', enabled: false),
         child: Text(
-          _isContainer ? '本身為容器' : '尚無容器',
+          '本身為容器',
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: context.palette.textTertiary),
         ),
       );
     }
+    final String? value = switch (_weightClass) {
+      WeightClass.worn => _wornTab,
+      WeightClass.vehicle => _vehicleTab,
+      WeightClass.packed =>
+        _availableContainers.any(
+              (container) => container.id == _containerItemId,
+            )
+            ? _containerItemId
+            : null,
+    };
     return DropdownButtonFormField<String?>(
       key: const ValueKey('item-editor-placement'),
-      value:
-          _availableContainers.any(
-            (container) => container.id == _containerItemId,
-          )
-          ? _containerItemId
-          : null,
+      value: value,
       isExpanded: true,
-      decoration: const InputDecoration(labelText: '放置位置'),
+      decoration: InputDecoration(
+        labelText: '放置位置',
+        helperText: _weightClass == WeightClass.packed ? null : '不計入背重',
+      ),
       items: [
-        const DropdownMenuItem<String?>(value: null, child: Text('未指定')),
         ..._availableContainers.map(
           (container) => DropdownMenuItem<String?>(
             value: container.id,
             child: Text(container.name, overflow: TextOverflow.ellipsis),
           ),
         ),
+        const DropdownMenuItem<String?>(value: null, child: Text('未指定')),
+        const DropdownMenuItem<String?>(value: _wornTab, child: Text('身上穿戴')),
+        const DropdownMenuItem<String?>(value: _vehicleTab, child: Text('放車上')),
       ],
-      onChanged: (value) => setState(() => _containerItemId = value),
+      onChanged: (value) => setState(() {
+        final offPack = _offPackWeightClass(value);
+        _weightClass = offPack ?? WeightClass.packed;
+        if (offPack == null) _containerItemId = value;
+      }),
     );
   }
 
@@ -2370,7 +2506,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                   weightClass: _weightClass,
                   isContainer: _isContainer,
                   containerItemId:
-                      _isContainer || _weightClass == WeightClass.worn
+                      _isContainer || _weightClass != WeightClass.packed
                       ? null
                       : _containerItemId,
                 ))
@@ -2383,7 +2519,8 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               necessity: _necessity,
               weightClass: _weightClass,
               isContainer: _isContainer,
-              containerItemId: _isContainer || _weightClass == WeightClass.worn
+              containerItemId:
+                  _isContainer || _weightClass != WeightClass.packed
                   ? null
                   : _containerItemId,
               weightSource: weightSource,
@@ -2402,6 +2539,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
       _lastCategoryName = category;
       if (_isContainerCategory(category) && !_isContainer) {
         _isContainer = true;
+        _weightClass = WeightClass.packed;
         _containerItemId = null;
       }
     });
@@ -2462,17 +2600,11 @@ String _necessityLabel(ItemNecessity necessity) {
   };
 }
 
-String _weightClassLabel(WeightClass weightClass) {
-  return switch (weightClass) {
-    WeightClass.packed => '計入背重',
-    WeightClass.worn => '不計入背重',
-  };
-}
-
 String? _weightClassBadge(WeightClass weightClass) {
   return switch (weightClass) {
     WeightClass.packed => null,
     WeightClass.worn => '穿戴',
+    WeightClass.vehicle => '車上',
   };
 }
 
@@ -2487,9 +2619,17 @@ String? _reductionBadge(ItemNecessity necessity) {
 /// 記住分類卡片的展開狀態,讓右上箭頭跟著切換。
 /// 存在頁面的 PageStorage:分類捲出畫面再回來,展開/收合不會被重設。
 class _ExpandedStateBuilder extends StatefulWidget {
-  const _ExpandedStateBuilder({required this.storageId, required this.builder});
+  const _ExpandedStateBuilder({
+    super.key,
+    required this.storageId,
+    required this.builder,
+    this.persist = true,
+  });
 
   final String storageId;
+
+  /// false 時一律從展開開始,也不記住這次的收合(搜尋結果用)。
+  final bool persist;
   final Widget Function(
     BuildContext context,
     bool expanded,
@@ -2503,14 +2643,16 @@ class _ExpandedStateBuilder extends StatefulWidget {
 
 class _ExpandedStateBuilderState extends State<_ExpandedStateBuilder> {
   late bool _expanded =
-      PageStorage.maybeOf(
-            context,
-          )?.readState(context, identifier: widget.storageId)
-          as bool? ??
-      true;
+      !widget.persist ||
+      (PageStorage.maybeOf(
+                context,
+              )?.readState(context, identifier: widget.storageId)
+              as bool? ??
+          true);
 
   void _handleChanged(bool expanded) {
     setState(() => _expanded = expanded);
+    if (!widget.persist) return;
     PageStorage.maybeOf(
       context,
     )?.writeState(context, expanded, identifier: widget.storageId);
@@ -2519,28 +2661,4 @@ class _ExpandedStateBuilderState extends State<_ExpandedStateBuilder> {
   @override
   Widget build(BuildContext context) =>
       widget.builder(context, _expanded, _handleChanged);
-}
-
-/// 清單內頁右上「⋯」選單的項目。
-enum _ListMenuAction { share, rename, delete }
-
-class _ListMenuRow extends StatelessWidget {
-  const _ListMenuRow({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-
-  /// 不指定時沿用選單預設文字色;刪除用警示紅。
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: color ?? context.palette.textSecondary),
-        const SizedBox(width: AppSpacing.md),
-        Text(label, style: color == null ? null : TextStyle(color: color)),
-      ],
-    );
-  }
 }

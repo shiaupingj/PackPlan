@@ -34,7 +34,7 @@ class PackList {
   WeatherCondition get weather => weatherConditions.first;
 
   int get totalWeightGram => items
-      .where((item) => item.weightClass != WeightClass.worn)
+      .where((item) => item.weightClass == WeightClass.packed)
       .fold(0, (total, item) => total + item.totalWeightGram);
 
   int get baseWeightGram => items
@@ -45,11 +45,15 @@ class PackList {
       .where((item) => item.weightClass == WeightClass.worn)
       .fold(0, (total, item) => total + item.totalWeightGram);
 
+  int get vehicleWeightGram => items
+      .where((item) => item.weightClass == WeightClass.vehicle)
+      .fold(0, (total, item) => total + item.totalWeightGram);
+
   int get skinOutWeightGram => totalWeightGram + wornWeightGram;
 
   int get packedWeightGram => items
       .where((item) => item.checked)
-      .where((item) => item.weightClass != WeightClass.worn)
+      .where((item) => item.weightClass == WeightClass.packed)
       .fold(0, (total, item) => total + item.totalWeightGram);
 
   int get checkedCount => items.where((item) => item.checked).length;

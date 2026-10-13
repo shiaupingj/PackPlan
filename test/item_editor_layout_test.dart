@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:packplan/app/pack_plan_app.dart';
 import 'package:packplan/data/pack_list_repository.dart';
+import 'package:packplan/models/pack_item.dart';
 
 void main() {
   Finder field(String label) => find.byWidgetPredicate(
@@ -26,11 +27,11 @@ void main() {
   double top(WidgetTester tester, Finder finder) =>
       tester.getTopLeft(finder.first).dy;
 
-  testWidgets('重量與數量、重量類型與必要性、放置位置與容器開關各在同一行', (tester) async {
+  testWidgets('重量與數量、放置位置與容器開關各在同一行;沒有重量類型欄', (tester) async {
     await openNewItemEditor(tester);
 
     expect(top(tester, field('單件重量 g')), top(tester, field('數量')));
-    expect(top(tester, field('重量類型')), top(tester, field('必要性')));
+    expect(field('重量類型'), findsNothing);
 
     final placement = find.byKey(const ValueKey('item-editor-placement'));
     final toggle = find.byKey(const ValueKey('item-editor-container-switch'));
@@ -96,6 +97,36 @@ void main() {
     );
     expect(saved.isContainer, isTrue);
     expect(saved.containerItemId, isNull);
+  });
+
+  testWidgets('放置位置選「放車上」:隱藏容器開關、不計背重、存成車上', (tester) async {
+    final repository = await openNewItemEditor(tester);
+    await tester.enterText(find.byType(TextField).first, '露營椅');
+
+    final placement = find.byKey(const ValueKey('item-editor-placement'));
+    await tester.ensureVisible(placement);
+    await tester.pumpAndSettle();
+    await tester.tap(placement);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放車上').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('item-editor-container-switch')),
+      findsNothing,
+    );
+    expect(find.text('不計入背重'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, '儲存'));
+    await tester.pumpAndSettle();
+
+    final saved = repository.lists.first.items.singleWhere(
+      (item) => item.name == '露營椅',
+    );
+    expect(saved.weightClass, WeightClass.vehicle);
+    expect(saved.containerItemId, isNull);
+    expect(saved.isContainer, isFalse);
+    expect(find.byKey(const ValueKey('placement-tab-__vehicle__')), findsOne);
   });
 
   testWidgets('總重卡片:「已打包 / 總重量 總重」固定一行', (tester) async {

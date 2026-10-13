@@ -113,7 +113,9 @@ class _AppShellState extends State<AppShell> {
                         vertical: AppSpacing.md,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        borderRadius: BorderRadius.circular(
+                          AppRadius.dialogButton,
+                        ),
                       ),
                     ),
                     child: const Text('知道了'),

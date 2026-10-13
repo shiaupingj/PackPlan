@@ -66,7 +66,7 @@ void main() {
     await openDetail(tester);
     final secondary = palette(tester).textSecondary;
 
-    for (final tooltip in ['旅程設定', '更多', '新增工具項目']) {
+    for (final tooltip in ['旅程設定', '分享', '新增工具項目']) {
       expect(
         iconColor(
           tester,
@@ -314,5 +314,58 @@ void main() {
     await tester.tap(find.text('背包系統'));
     await tester.pumpAndSettle();
     expect(tester.widget<Icon>(toggle).icon, Icons.expand_more);
+  });
+
+  testWidgets('放置位置右側搜尋:放大鏡靠右,依名稱篩選、找不到有提示、關閉後還原', (tester) async {
+    await openDetail(tester);
+
+    final open = find.byKey(const ValueKey('item-search-open'));
+    final header = find.byKey(const ValueKey('placement-pinned-header'));
+    // 放大鏡與標題同一行,靠右貼齊內容邊界(header 左右各留 16)。
+    expect(
+      (tester.getCenter(open).dy - tester.getCenter(find.text('放置位置')).dy)
+          .abs(),
+      lessThan(4),
+    );
+    final searchIcon = find.descendant(
+      of: open,
+      matching: find.byIcon(Icons.search),
+    );
+    expect(
+      tester.getRect(searchIcon).right,
+      closeTo(tester.getRect(header).right - 16, 1),
+    );
+
+    final shirt = find.byKey(const ValueKey('checklist-tile-shirt'));
+    final bottle = find.byKey(const ValueKey('checklist-tile-water-bottle'));
+    expect(bottle, findsOneWidget);
+
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('item-search-field')),
+      '排汗',
+    );
+    await tester.pumpAndSettle();
+    expect(shirt, findsOneWidget);
+    expect(bottle, findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('item-search-field')),
+      '不存在的東西',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('找不到「不存在的東西」'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('item-search-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('item-search-field')), findsNothing);
+    expect(find.text('放置位置'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      bottle,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(bottle, findsOneWidget);
   });
 }
