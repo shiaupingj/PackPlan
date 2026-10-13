@@ -6,6 +6,7 @@ import '../services/backup_codec.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
+import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 
 typedef RepositoryInitializer = Future<PackListRepository> Function();
@@ -56,13 +57,12 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
               '如果你有 PackPlan 備份，可在重新進入 App 後從「設定」匯入。',
             ),
             actions: [
-              TextButton(
+              AppDialogCancelButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('取消'),
               ),
-              FilledButton(
+              AppDialogConfirmButton(
                 onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('重建資料'),
+                label: '重建資料',
               ),
             ],
           ),

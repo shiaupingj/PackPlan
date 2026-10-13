@@ -52,6 +52,30 @@ void main() {
     expect(list.skinOutWeightGram, 4120);
   });
 
+  test('vehicle weight is excluded from pack, base and skin-out weight', () {
+    final source = SeedData.lists().first;
+    final list = source.copyWith(
+      items: source.items.map((item) {
+        if (item.id == 'shirt') {
+          return item.copyWith(
+            weightClass: WeightClass.vehicle,
+            containerItemId: null,
+          );
+        }
+        return item;
+      }).toList(),
+    );
+
+    final summary = WeightCalculator.summarize(list);
+
+    expect(summary.totalGram, 3580);
+    expect(summary.baseGram, 3580);
+    expect(summary.wornGram, 0);
+    expect(summary.vehicleGram, 540);
+    expect(list.skinOutWeightGram, 3580);
+    expect(WeightCalculator.heaviestItem(list)?.id, isNot('shirt'));
+  });
+
   test('reduction suggestions exclude worn items', () {
     final source = SeedData.lists().first;
     final list = source.copyWith(

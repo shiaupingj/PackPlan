@@ -515,9 +515,7 @@ void main() {
 
     expect(find.textContaining('最重項目 主背包 45L'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('更多'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('分享'));
+    await tester.tap(find.byTooltip('分享'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('使用系統分享'));
     await tester.pumpAndSettle();
@@ -544,7 +542,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('顯示重量'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(SwitchListTile, '顯示重量'));
+    await tester.tap(find.byKey(const ValueKey('trip-settings-show-weight')));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '儲存'));
     await tester.pumpAndSettle();
@@ -552,6 +550,52 @@ void main() {
     expect(repository.findById(listId)!.showWeight, isFalse);
     expect(find.text('已打包重量'), findsNothing);
     expect(find.textContaining('最重項目'), findsNothing);
+  });
+
+  testWidgets('Trip settings can change the list weight limit', (tester) async {
+    final repository = InMemoryPackListRepository();
+    final listId = repository.lists.first.id;
+    await tester.pumpWidget(PackPlanApp(repository: repository));
+
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('旅程設定'));
+    await tester.pumpAndSettle();
+
+    final slider = find.byKey(
+      const ValueKey('trip-settings-weight-limit-slider'),
+    );
+    await tester.ensureVisible(slider);
+    await tester.pumpAndSettle();
+    await tester.drag(slider, const Offset(1000, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '儲存'));
+    await tester.pumpAndSettle();
+
+    expect(repository.findById(listId)!.weightLimitGram, 30000);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('weight-header-limit')))
+          .data,
+      contains('30'),
+    );
+  });
+
+  testWidgets('Trip settings hide the weight limit when weight is hidden', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('旅程設定'));
+    await tester.pumpAndSettle();
+    expect(find.text('重量上限'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('trip-settings-show-weight')));
+    await tester.pumpAndSettle();
+    expect(find.text('重量上限'), findsNothing);
   });
 
   testWidgets(
@@ -694,7 +738,7 @@ void main() {
     );
   });
 
-  testWidgets('Item editor can mark clothing as worn and exclude pack weight', (
+  testWidgets('Item editor can set clothing as worn and exclude pack weight', (
     tester,
   ) async {
     final repository = InMemoryPackListRepository();
@@ -711,8 +755,11 @@ void main() {
     );
     await tapVisible(tester, shirtTile);
 
-    await tapVisible(tester, find.text('計入背重'));
-    await tapVisible(tester, find.text('不計入背重').last);
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('item-editor-placement')),
+    );
+    await tapVisible(tester, find.text('身上穿戴').last);
     await tapVisible(tester, find.widgetWithText(FilledButton, '儲存'));
 
     final shirt = repository

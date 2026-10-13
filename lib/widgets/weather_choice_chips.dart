@@ -14,44 +14,70 @@ class WeatherChoiceChips extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onChanged,
+    this.singleRow = false,
   });
 
   final Set<WeatherCondition> selected;
   final ValueChanged<Set<WeatherCondition>> onChanged;
 
+  /// 全部選項排成一行、平分寬度(對話框較窄時使用),否則自動換行。
+  final bool singleRow;
+
+  static const _spacing = 8.0;
+
   @override
   Widget build(BuildContext context) {
+    final chips = WeatherCondition.values.map(
+      (weather) => _chip(context, weather),
+    );
+    if (!singleRow) {
+      return Wrap(
+        spacing: _spacing,
+        runSpacing: _spacing,
+        children: chips.toList(),
+      );
+    }
+    return Row(
+      children: [
+        for (final (i, chip) in chips.indexed) ...[
+          if (i > 0) const SizedBox(width: _spacing),
+          Expanded(child: chip),
+        ],
+      ],
+    );
+  }
+
+  Widget _chip(BuildContext context, WeatherCondition weather) {
     final palette = context.palette;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: WeatherCondition.values.map((weather) {
-        final isSelected = selected.contains(weather);
-        return FilterChip(
-          key: ValueKey('weather-chip-${weather.name}'),
-          selected: isSelected,
-          showCheckmark: false,
-          selectedColor: AppColors.primary,
-          backgroundColor: palette.surface,
-          side: BorderSide(
-            color: isSelected ? AppColors.primary : palette.border,
-            width: 0.8,
-          ),
-          labelStyle: TextStyle(
-            color: isSelected ? AppColors.ink : palette.textPrimary,
-          ),
-          label: Text(TripFormatters.weather(weather)),
-          onSelected: (value) {
-            final next = {...selected};
-            if (value) {
-              next.add(weather);
-            } else if (next.length > 1) {
-              next.remove(weather);
-            }
-            onChanged(next);
-          },
-        );
-      }).toList(),
+    final isSelected = selected.contains(weather);
+    return FilterChip(
+      key: ValueKey('weather-chip-${weather.name}'),
+      selected: isSelected,
+      showCheckmark: false,
+      selectedColor: AppColors.primary,
+      backgroundColor: palette.surface,
+      side: BorderSide(
+        color: isSelected ? AppColors.primary : palette.border,
+        width: 0.8,
+      ),
+      labelStyle: TextStyle(
+        color: isSelected ? AppColors.ink : palette.textPrimary,
+      ),
+      // 一行排列時縮小左右留白,窄螢幕也放得下四個。
+      padding: singleRow ? const EdgeInsets.symmetric(vertical: 4) : null,
+      labelPadding: singleRow ? EdgeInsets.zero : null,
+      label: singleRow
+          ? Center(child: Text(TripFormatters.weather(weather), maxLines: 1))
+          : Text(TripFormatters.weather(weather)),
+      onSelected: (value) {
+        final next = {...selected};
+        if (value) {
+          next.add(weather);
+        } else if (next.length > 1) {
+          next.remove(weather);
+        }
+        onChanged(next);
+      },
     );
   }
 }

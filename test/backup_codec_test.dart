@@ -326,4 +326,38 @@ void main() {
     );
     expect(worn.containerItemId, isNull);
   });
+
+  test('放車上的項目存檔後讀得回來,帶著容器時自動移出', () {
+    final repository = InMemoryPackListRepository();
+    final list = repository.lists.first;
+    final container = list.items.firstWhere((item) => item.isContainer);
+    final withVehicle = list.copyWith(
+      items: [
+        ...list.items,
+        PackItem(
+          id: 'camp-chair',
+          categoryId: 'camp',
+          categoryName: '營地',
+          name: '露營椅',
+          weightGram: 900,
+          quantity: 1,
+          checked: false,
+          necessity: ItemNecessity.optional,
+          sortOrder: 99,
+          weightClass: WeightClass.vehicle,
+          containerItemId: container.id,
+        ),
+      ],
+    );
+
+    final decoded = BackupCodec.decode(
+      BackupCodec.encode(lists: [withVehicle], settings: repository.settings),
+    );
+    final chair = decoded.lists.single.items.singleWhere(
+      (item) => item.id == 'camp-chair',
+    );
+    expect(chair.weightClass, WeightClass.vehicle);
+    expect(chair.containerItemId, isNull);
+    expect(decoded.lists.single.vehicleWeightGram, 900);
+  });
 }

@@ -24,6 +24,12 @@ abstract final class ShareSummaryBuilder {
           '（不計背重）',
         );
       }
+      if (summary.vehicleGram > 0) {
+        buffer.writeln(
+          '車上 ${WeightFormatters.gram(summary.vehicleGram, unit: unit)}'
+          '（不計背重）',
+        );
+      }
     }
     buffer.writeln('進度 ${summary.checkedCount}/${summary.itemCount} 已打包');
 

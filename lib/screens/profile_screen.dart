@@ -13,6 +13,7 @@ import '../services/formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
+import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -287,13 +288,12 @@ class ProfileScreen extends StatelessWidget {
             '此動作無法復原，建議先匯出目前資料。',
           ),
           actions: [
-            TextButton(
+            AppDialogCancelButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
             ),
-            FilledButton(
+            AppDialogConfirmButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('匯入'),
+              label: '匯入',
             ),
           ],
         ),
@@ -627,19 +627,13 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
         title: AppDialogTitle(title),
         content: Text(message),
         actions: [
-          TextButton(
+          AppDialogCancelButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
           ),
-          FilledButton(
-            style: destructive
-                ? FilledButton.styleFrom(
-                    backgroundColor: AppColors.weightOver,
-                    foregroundColor: AppColors.onWeightOver,
-                  )
-                : null,
+          AppDialogConfirmButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(confirmLabel),
+            label: confirmLabel,
+            destructive: destructive,
           ),
         ],
       ),

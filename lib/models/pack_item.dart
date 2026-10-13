@@ -1,6 +1,8 @@
 enum ItemNecessity { required, optional, luxury }
 
-enum WeightClass { packed, worn }
+/// 重量歸屬,對應編輯項目時的「放置位置」:[packed] 計入背重(放進容器或未指定),
+/// [worn] 身上穿戴、[vehicle] 放車上,後兩者都不計入背重、也不放進容器。
+enum WeightClass { packed, worn, vehicle }
 
 /// 重量數值的來源:[unset] 尚未填(範本預設 0g)、[manual] 使用者自填、
 /// [online] 由線上參考重量庫帶入。

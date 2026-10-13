@@ -66,7 +66,7 @@ void main() {
     await openDetail(tester);
     final secondary = palette(tester).textSecondary;
 
-    for (final tooltip in ['旅程設定', '更多', '新增工具項目']) {
+    for (final tooltip in ['旅程設定', '分享', '新增工具項目']) {
       expect(
         iconColor(
           tester,
