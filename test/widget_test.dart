@@ -95,8 +95,8 @@ void main() {
 
     expect(find.text('基礎登山'), findsOneWidget);
     expect(find.text('城市旅遊'), findsOneWidget);
-    expect(find.text('進階登山'), findsOneWidget);
     // Pro 未開放:不列 Pro 範本,也不顯示升級卡。
+    expect(find.text('進階登山'), findsNothing);
     expect(find.text('極簡露營'), findsNothing);
     expect(find.text('長天數旅行'), findsNothing);
 
