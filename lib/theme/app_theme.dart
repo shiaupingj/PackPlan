@@ -24,6 +24,9 @@ abstract final class AppTheme {
               secondary: AppColors.primary,
               surface: p.surface,
               onSurface: p.textPrimary,
+              // 沒指定時 outlineVariant 會沿用文字色(近黑/近白),
+              // M3 的 Divider、TabBar 底線都用它;統一成卡片邊框的淺灰。
+              outlineVariant: p.border,
               error: p.weightOver,
             );
 
@@ -45,6 +48,7 @@ abstract final class AppTheme {
     return base.copyWith(
       textTheme: textTheme,
       dividerColor: p.border,
+      dividerTheme: DividerThemeData(color: p.border),
       cardTheme: CardThemeData(
         color: p.surface,
         elevation: 0,

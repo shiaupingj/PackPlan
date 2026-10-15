@@ -475,40 +475,49 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                FilledButton.icon(
-                  onPressed: () async {
-                    try {
-                      await SystemShareService.shareText(
-                        text: summary,
-                        subject: 'PackPlan ${list.title}',
-                      );
-                      if (sheetContext.mounted) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    } catch (_) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.ios_share),
-                  label: const Text('使用系統分享'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: summary));
-                    if (sheetContext.mounted) {
-                      Navigator.of(sheetContext).pop();
-                    }
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('清單摘要已複製')));
-                  },
-                  icon: const Icon(Icons.copy_outlined),
-                  label: const Text('複製摘要'),
+                // 與清單內頁「新增項目 / 分類排序」同樣式,兩顆並排。
+                Row(
+                  children: [
+                    Expanded(
+                      child: PrimaryButton(
+                        label: '使用系統分享',
+                        icon: Icons.ios_share,
+                        onPressed: () async {
+                          try {
+                            await SystemShareService.shareText(
+                              text: summary,
+                              subject: 'PackPlan ${list.title}',
+                            );
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: PrimaryButton(
+                        label: '複製摘要',
+                        icon: Icons.copy_outlined,
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: summary));
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('清單摘要已複製')),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

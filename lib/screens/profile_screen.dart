@@ -142,7 +142,7 @@ class ProfileScreen extends StatelessWidget {
                   subtitle: '將目前資料儲存為 JSON 檔案',
                   onTap: () => _exportBackup(context),
                 ),
-                Divider(height: 1, color: context.palette.border),
+                const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.file_download_outlined,
                   title: '匯入備份',
@@ -172,14 +172,14 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               children: [
                 const _VersionTile(),
-                Divider(height: 1, color: context.palette.border),
+                const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
                   title: '隱私權政策',
                   subtitle: '資料使用與隱私說明',
                   onTap: () => _openUrl(context, _privacyUrl),
                 ),
-                Divider(height: 1, color: context.palette.border),
+                const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.description_outlined,
                   title: '使用條款',

@@ -8,6 +8,7 @@ import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
 import 'package:packplan/services/support_mail.dart';
 import 'package:packplan/theme/app_colors.dart';
+import 'package:packplan/theme/app_palette.dart';
 import 'package:packplan/widgets/checklist_tile.dart';
 
 /// 清單列:名稱與重量分開顯示,依兩者找到那一列。
@@ -59,11 +60,11 @@ void main() {
 
     final helpButton = find.byKey(const ValueKey('home-help-button'));
     expect(helpButton, findsOneWidget);
-    // 灰底圓角方塊 48×48、白色線條 (i)。
+    // 與首頁卡片同底色的圓角方塊 48×48,(i) 用主要文字色(測試環境為淺色)。
     expect(tester.getSize(helpButton), const Size(48, 48));
     final fab = tester.widget<FloatingActionButton>(helpButton);
-    expect(fab.backgroundColor, AppColors.trackMuted);
-    expect(fab.foregroundColor, Colors.white);
+    expect(fab.backgroundColor, AppPalette.light.surface);
+    expect(fab.foregroundColor, AppPalette.light.textPrimary);
     expect(fab.shape, isA<RoundedRectangleBorder>());
     expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
 
