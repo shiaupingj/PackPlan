@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/pack_list_repository.dart';
 import '../data/weight_reference_repository.dart';
 import '../services/backup_codec.dart';
+import '../services/crash_reporting.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
@@ -78,7 +79,8 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
         _resetting = false;
         _initialization = widget.initialize();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       if (!mounted) return;
       setState(() => _resetting = false);
       messenger.showSnackBar(

@@ -11,6 +11,7 @@ import '../app/feature_flags.dart';
 import '../models/user_settings.dart';
 import '../services/backup_codec.dart';
 import '../services/cloud_backup_service.dart';
+import '../services/crash_reporting.dart';
 import '../services/formatters.dart';
 import '../services/support_mail.dart';
 import '../theme/app_colors.dart';
@@ -257,7 +258,8 @@ class ProfileScreen extends StatelessWidget {
       if (path != null && context.mounted) {
         _showSnack(context, '備份已匯出');
       }
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       if (context.mounted) {
         _showSnack(context, '無法匯出備份，請稍後再試');
       }
@@ -315,7 +317,9 @@ class ProfileScreen extends StatelessWidget {
       _showSnack(context, '已匯入 ${backup.lists.length} 份清單');
     } on BackupFormatException catch (error) {
       if (context.mounted) _showSnack(context, error.message);
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      // 格式錯誤已由上面處理;走到這裡多半是程式問題。
+      CrashReporting.report(error, stackTrace);
       if (context.mounted) _showSnack(context, '無法匯入備份，請確認檔案內容');
     }
   }
@@ -483,7 +487,8 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
       await action();
     } on CloudBackupException catch (error) {
       _snack(error.message);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       _snack('雲端操作失敗，請稍後再試');
     } finally {
       if (mounted) setState(() => _busy = false);
