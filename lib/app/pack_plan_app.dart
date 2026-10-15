@@ -6,6 +6,7 @@ import '../services/cloud_backup_factory.dart';
 import '../services/cloud_backup_service.dart';
 import '../services/weight_reference_source.dart';
 import '../theme/app_theme.dart';
+import '../widgets/content_width_limit.dart';
 import 'app_shell.dart';
 import 'app_scope.dart';
 import 'cloud_backup_scope.dart';
@@ -71,6 +72,8 @@ class _PackPlanAppState extends State<PackPlanApp> {
                 theme: AppTheme.light,
                 darkTheme: AppTheme.dark,
                 themeMode: _repository.settings.themeMode,
+                builder: (context, child) =>
+                    ContentWidthLimit(child: child ?? const SizedBox.shrink()),
                 home: const AppShell(),
               );
             },

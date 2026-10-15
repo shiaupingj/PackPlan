@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:packplan/app/pack_plan_app.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_list.dart';
+import 'package:packplan/screens/create_pack_flow_screen.dart';
 import 'package:packplan/theme/app_colors.dart';
 
 void main() {
@@ -263,9 +264,18 @@ void main() {
   });
 
   testWidgets('進階登山 Step 3 沿用基礎登山的預設不勾名單', (tester) async {
-    await openCreateFlow(tester);
-    await tapVisible(tester, find.text('進階登山'));
-    await tapVisible(tester, find.text('下一步'));
+    // 進階登山是 Pro 範本,Pro 未開放時清單裡選不到,直接帶入範本開建立流程。
+    final repository = await openCreateFlow(tester);
+    final advanced = repository.templates.firstWhere(
+      (t) => t.id == 'advanced-hike',
+    );
+    Navigator.of(tester.element(find.text('Step 1 / 4'))).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => CreatePackFlowScreen(initialTemplate: advanced),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Step 2 / 4'), findsOneWidget);
     await tapVisible(tester, find.text('下一步'));
 
     bool selected(String key) =>

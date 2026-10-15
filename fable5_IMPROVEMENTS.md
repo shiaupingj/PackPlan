@@ -50,7 +50,7 @@
 - **建議**:全域搜尋 `lime` 把引用處改成對應的 `orange*` 常數,
   然後刪掉整段別名。純機械性重構,改完跑 `flutter analyze` + 測試即可。
 
-### 4. `ITSAppUsesNonExemptEncryption` 未設定(上架流程)
+### 4. ~~`ITSAppUsesNonExemptEncryption` 未設定(上架流程)~~ ✅ 2026-10-15 已加入 Info.plist
 
 - **位置**:`ios/Runner/Info.plist`
 - **問題**:沒設這個 key 的話,每次上傳 TestFlight 都要手動回答
@@ -63,7 +63,7 @@
   <false/>
   ```
 
-### 5. `android:label="packplan"` 全小寫(上架檢查)
+### 5. ~~`android:label="packplan"` 全小寫(上架檢查)~~ ✅ 已改為 `PackPlan`
 
 - **位置**:`android/app/src/main/AndroidManifest.xml`
 - **問題**:安裝後桌面顯示的 App 名稱是小寫 `packplan`。

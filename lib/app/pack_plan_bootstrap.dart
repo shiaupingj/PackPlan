@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../data/pack_list_repository.dart';
 import '../data/weight_reference_repository.dart';
 import '../services/backup_codec.dart';
+import '../services/crash_reporting.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_theme.dart';
 import 'pack_plan_app.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
+import '../widgets/content_width_limit.dart';
 
 typedef RepositoryInitializer = Future<PackListRepository> Function();
 typedef LocalDataResetter = Future<void> Function();
@@ -78,7 +80,8 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
         _resetting = false;
         _initialization = widget.initialize();
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       if (!mounted) return;
       setState(() => _resetting = false);
       messenger.showSnackBar(
@@ -102,6 +105,8 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
           title: 'PackPlan',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
+          builder: (context, child) =>
+              ContentWidthLimit(child: child ?? const SizedBox.shrink()),
           home: snapshot.hasError
               ? _StartupRecoveryScreen(
                   error: snapshot.error!,

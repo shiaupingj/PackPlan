@@ -43,7 +43,7 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
-      // 灰底圓角方塊 + 白色線條 (i);深淺色都用同一個灰,白圖示在兩種底上都清楚。
+      // 與首頁清單卡片同底色、同邊框的圓角方塊,(i) 用主要文字色。
       floatingActionButton: _selectedIndex == 0
           ? SizedBox.square(
               dimension: 48,
@@ -51,11 +51,12 @@ class _AppShellState extends State<AppShell> {
                 key: const ValueKey('home-help-button'),
                 heroTag: 'home-help-button',
                 tooltip: '操作說明',
-                backgroundColor: AppColors.trackMuted,
-                foregroundColor: Colors.white,
+                backgroundColor: context.palette.surface,
+                foregroundColor: context.palette.textPrimary,
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: context.palette.border, width: 0.8),
                 ),
                 onPressed: () => _showHomeHelp(context),
                 child: const Icon(Icons.info_outline_rounded, size: 26),

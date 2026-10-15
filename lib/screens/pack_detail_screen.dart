@@ -452,63 +452,79 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       builder: (sheetContext) {
         return SingleChildScrollView(
           child: Padding(
+            // 底部留兩倍間距,按鈕不貼近畫面底緣。
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
               0,
               AppSpacing.lg,
-              AppSpacing.lg,
+              AppSpacing.lg * 2,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('分享清單摘要', style: Theme.of(context).textTheme.titleLarge),
+                // 與首頁「操作說明」相同:標題 + 右側 × 關閉。
+                DefaultTextStyle.merge(
+                  style: Theme.of(context).textTheme.titleLarge,
+                  child: const AppDialogTitle('分享清單摘要'),
+                ),
                 const SizedBox(height: AppSpacing.md),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: _SharePreview(
-                      list: list,
-                      summary: weightSummary,
-                      unit: unit,
+                // 撐滿寬度,與下方兩顆按鈕對齊。
+                SizedBox(
+                  width: double.infinity,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: _SharePreview(
+                        list: list,
+                        summary: weightSummary,
+                        unit: unit,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                FilledButton.icon(
-                  onPressed: () async {
-                    try {
-                      await SystemShareService.shareText(
-                        text: summary,
-                        subject: 'PackPlan ${list.title}',
-                      );
-                      if (sheetContext.mounted) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    } catch (_) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.ios_share),
-                  label: const Text('使用系統分享'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: summary));
-                    if (sheetContext.mounted) {
-                      Navigator.of(sheetContext).pop();
-                    }
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('清單摘要已複製')));
-                  },
-                  icon: const Icon(Icons.copy_outlined),
-                  label: const Text('複製摘要'),
+                // 與設定頁「立即備份到雲端」同樣式(主題預設 FilledButton),只放文字,兩顆並排。
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          try {
+                            await SystemShareService.shareText(
+                              text: summary,
+                              subject: 'PackPlan ${list.title}',
+                            );
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
+                            );
+                          }
+                        },
+                        child: const Text('使用系統分享'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: summary));
+                          if (sheetContext.mounted) {
+                            Navigator.of(sheetContext).pop();
+                          }
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('清單摘要已複製')),
+                          );
+                        },
+                        child: const Text('複製摘要'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

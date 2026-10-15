@@ -2,14 +2,18 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app_scope.dart';
 import '../app/cloud_backup_scope.dart';
+import '../app/feature_flags.dart';
 import '../models/user_settings.dart';
 import '../services/backup_codec.dart';
 import '../services/cloud_backup_service.dart';
+import '../services/crash_reporting.dart';
 import '../services/formatters.dart';
+import '../services/support_mail.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
@@ -19,7 +23,6 @@ import '../widgets/app_dialog_title.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  static const _appVersion = '1.0.0+1';
   static const _privacyUrl =
       'https://shiaupingj.github.io/appspdoit/legal/packplan-privacy.html';
   static const _termsUrl =
@@ -41,8 +44,10 @@ class ProfileScreen extends StatelessWidget {
           AppSpacing.navBarClearance,
         ),
         children: [
-          const _ProUpgradeCard(),
-          const SizedBox(height: AppSpacing.lg),
+          if (FeatureFlags.showProUpgrade) ...[
+            const _ProUpgradeCard(),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           Text('偏好設定', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
           Card(
@@ -153,22 +158,12 @@ class ProfileScreen extends StatelessWidget {
           Text('聯繫', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
           Card(
-            child: Column(
-              children: [
-                _ActionTile(
-                  icon: Icons.feedback_outlined,
-                  title: '建議與反饋',
-                  subtitle: '提供使用建議或回報問題',
-                  onTap: () => _showSnack(context, '建議與反饋會在 1.1 版本補上'),
-                ),
-                const Divider(height: 1),
-                _ActionTile(
-                  icon: Icons.ios_share_outlined,
-                  title: '分享給朋友',
-                  subtitle: '邀請朋友一起建立打包清單',
-                  onTap: () => _showSnack(context, '分享功能會在 1.1 版本補上'),
-                ),
-              ],
+            child: _ActionTile(
+              icon: Icons.feedback_outlined,
+              title: '建議與反饋',
+              subtitle: '提供使用建議或回報問題',
+              trailingIcon: Icons.open_in_new,
+              onTap: () => _sendFeedback(context),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -177,24 +172,19 @@ class ProfileScreen extends StatelessWidget {
           Card(
             child: Column(
               children: [
-                _ActionTile(
-                  icon: Icons.new_releases_outlined,
-                  title: '版本資訊',
-                  subtitle: 'PackPlan $_appVersion',
-                  onTap: () => _showSnack(context, '目前版本 $_appVersion'),
-                ),
+                const _VersionTile(),
                 const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
                   title: '隱私權政策',
-                  subtitle: '資料使用與隱私說明',
+                  trailingIcon: Icons.open_in_new,
                   onTap: () => _openUrl(context, _privacyUrl),
                 ),
                 const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.description_outlined,
                   title: '使用條款',
-                  subtitle: '服務條款與免責聲明',
+                  trailingIcon: Icons.open_in_new,
                   onTap: () => _openUrl(context, _termsUrl),
                 ),
               ],
@@ -203,6 +193,27 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 安裝檔的版本(pubspec 的 version);讀不到時為 null。
+  /// PackageInfo 自己會快取,這裡不另存 Future(跨 zone 重用會卡住)。
+  static Future<String?> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return '${info.version} (${info.buildNumber})';
+    } on Object {
+      return null;
+    }
+  }
+
+  static Future<void> _sendFeedback(BuildContext context) async {
+    final version = await _loadAppVersion();
+    final opened = await SupportMail.open(
+      SupportMail.feedback(appVersion: version),
+    );
+    if (!opened && context.mounted) {
+      _showSnack(context, '無法開啟郵件 App，請寄信到 ${SupportMail.address}');
+    }
   }
 
   static void _showSnack(BuildContext context, String message) {
@@ -248,7 +259,8 @@ class ProfileScreen extends StatelessWidget {
       if (path != null && context.mounted) {
         _showSnack(context, '備份已匯出');
       }
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       if (context.mounted) {
         _showSnack(context, '無法匯出備份，請稍後再試');
       }
@@ -306,9 +318,39 @@ class ProfileScreen extends StatelessWidget {
       _showSnack(context, '已匯入 ${backup.lists.length} 份清單');
     } on BackupFormatException catch (error) {
       if (context.mounted) _showSnack(context, error.message);
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      // 格式錯誤已由上面處理;走到這裡多半是程式問題。
+      CrashReporting.report(error, stackTrace);
       if (context.mounted) _showSnack(context, '無法匯入備份，請確認檔案內容');
     }
+  }
+}
+
+class _VersionTile extends StatefulWidget {
+  const _VersionTile();
+
+  @override
+  State<_VersionTile> createState() => _VersionTileState();
+}
+
+class _VersionTileState extends State<_VersionTile> {
+  late final Future<String?> _version = ProfileScreen._loadAppVersion();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _version,
+      builder: (context, snapshot) {
+        final version = snapshot.data ?? '—';
+        return _ActionTile(
+          icon: Icons.new_releases_outlined,
+          title: '版本資訊',
+          subtitle: 'PackPlan $version',
+          trailingIcon: null,
+          onTap: () => ProfileScreen._showSnack(context, '目前版本 $version'),
+        );
+      },
+    );
   }
 }
 
@@ -447,7 +489,8 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
       await action();
     } on CloudBackupException catch (error) {
       _snack(error.message);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      CrashReporting.report(error, stackTrace);
       _snack('雲端操作失敗，請稍後再試');
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -518,7 +561,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
           children: [
             Row(
               children: [
-                const Icon(Icons.cloud_outlined, color: AppColors.primary),
+                Icon(Icons.cloud_outlined, color: context.palette.textPrimary),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -591,9 +634,13 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: const Icon(Icons.history, size: 20),
+      leading: Icon(
+        Icons.history,
+        size: 20,
+        color: context.palette.textPrimary,
+      ),
       title: Text(_formatTime(entry.createdAt)),
-      subtitle: Text(_formatSize(entry.sizeBytes)),
+      subtitle: Text(_formatSize(entry.sizeBytes), style: t.bodySmall),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -666,22 +713,33 @@ class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
+    this.trailingIcon = Icons.chevron_right,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
+
+  /// 右側 icon:預設 >;開外部網頁/郵件的項目用 [Icons.open_in_new];null 不顯示。
+  final IconData? trailingIcon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    // 左右 icon 與標題同色;第二行與「新登山/露營清單會使用…」同字級同色(bodySmall)。
+    // ListTile 會把 listTileTheme.textColor 套到 subtitle,所以這裡明確指定。
     return ListTile(
-      leading: Icon(icon, color: AppColors.primary),
+      leading: Icon(icon, color: palette.textPrimary),
       title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+      trailing: trailingIcon == null
+          ? null
+          : Icon(trailingIcon, color: palette.textPrimary),
       onTap: onTap,
     );
   }
