@@ -401,7 +401,7 @@ class _TemplateStep extends StatelessWidget {
         Text('選擇範本', style: t.headlineMedium),
         const SizedBox(height: AppSpacing.lg),
         ...templates.map((template) {
-          final locked = template.proOnly;
+          final locked = FeatureFlags.isLocked(template);
           final active = selected?.id == template.id;
           return Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.md),

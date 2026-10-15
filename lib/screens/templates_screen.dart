@@ -33,7 +33,7 @@ class TemplatesScreen extends StatelessWidget {
               child: TemplateCard(
                 name: template.name,
                 description: template.description,
-                locked: template.proOnly,
+                locked: FeatureFlags.isLocked(template),
                 onTap: () => _createFromTemplate(context, template),
               ),
             ),
@@ -44,7 +44,7 @@ class TemplatesScreen extends StatelessWidget {
   }
 
   void _createFromTemplate(BuildContext context, PackTemplate template) {
-    if (template.proOnly) {
+    if (FeatureFlags.isLocked(template)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Pro 範本會在 1.1 版本開放')));
