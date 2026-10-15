@@ -569,6 +569,21 @@ void main() {
     );
   });
 
+  testWidgets('分享清單摘要標題右側的 × 可關閉面板', (tester) async {
+    await tester.pumpWidget(const PackPlanApp());
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('分享'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('分享清單摘要'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('dialog-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('分享清單摘要'), findsNothing);
+    expect(find.textContaining('最重項目 主背包 45L'), findsOneWidget);
+  });
+
   testWidgets('Trip settings can hide weight throughout the current list', (
     tester,
   ) async {

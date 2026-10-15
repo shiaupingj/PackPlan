@@ -162,6 +162,7 @@ class ProfileScreen extends StatelessWidget {
               icon: Icons.feedback_outlined,
               title: '建議與反饋',
               subtitle: '提供使用建議或回報問題',
+              trailingIcon: Icons.open_in_new,
               onTap: () => _sendFeedback(context),
             ),
           ),
@@ -345,6 +346,7 @@ class _VersionTileState extends State<_VersionTile> {
           icon: Icons.new_releases_outlined,
           title: '版本資訊',
           subtitle: 'PackPlan $version',
+          trailingIcon: null,
           onTap: () => ProfileScreen._showSnack(context, '目前版本 $version'),
         );
       },
@@ -720,8 +722,8 @@ class _ActionTile extends StatelessWidget {
   final String title;
   final String? subtitle;
 
-  /// 右側 icon:預設 >;開外部網頁的項目用 [Icons.open_in_new]。
-  final IconData trailingIcon;
+  /// 右側 icon:預設 >;開外部網頁/郵件的項目用 [Icons.open_in_new];null 不顯示。
+  final IconData? trailingIcon;
   final VoidCallback onTap;
 
   @override
@@ -735,7 +737,9 @@ class _ActionTile extends StatelessWidget {
       subtitle: subtitle == null
           ? null
           : Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
-      trailing: Icon(trailingIcon, color: palette.textPrimary),
+      trailing: trailingIcon == null
+          ? null
+          : Icon(trailingIcon, color: palette.textPrimary),
       onTap: onTap,
     );
   }

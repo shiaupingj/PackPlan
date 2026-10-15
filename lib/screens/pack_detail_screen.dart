@@ -452,17 +452,22 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
       builder: (sheetContext) {
         return SingleChildScrollView(
           child: Padding(
+            // 底部留兩倍間距,按鈕不貼近畫面底緣。
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
               0,
               AppSpacing.lg,
-              AppSpacing.lg,
+              AppSpacing.lg * 2,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('分享清單摘要', style: Theme.of(context).textTheme.titleLarge),
+                // 與首頁「操作說明」相同:標題 + 右側 × 關閉。
+                DefaultTextStyle.merge(
+                  style: Theme.of(context).textTheme.titleLarge,
+                  child: const AppDialogTitle('分享清單摘要'),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 // 撐滿寬度,與下方兩顆按鈕對齊。
                 SizedBox(
