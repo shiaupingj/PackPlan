@@ -5,14 +5,18 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// 當機回報(Sentry)。
 ///
-/// 只在 release 版、且建置時帶了 DSN 才啟用:
-/// `flutter build ipa --dart-define=SENTRY_DSN=https://...`
-/// debug、測試、沒給 DSN 的建置完全不連 Sentry,也不耗免費額度。
+/// 只在 release 版啟用;debug 與測試完全不連 Sentry,也不耗免費額度。
+/// DSN 是公開的用戶端金鑰(不是密碼),直接寫在這裡;
+/// 要換專案時可用 `--dart-define=SENTRY_DSN=...` 覆蓋,給空字串則停用。
 ///
 /// 隱私:不送個資(sendDefaultPii=false)、不截圖、不送畫面結構,
 /// 只送錯誤訊息、堆疊、機型/系統/App 版本。IP 另在 Sentry 專案設定關閉儲存。
 abstract final class CrashReporting {
-  static const _dsn = String.fromEnvironment('SENTRY_DSN');
+  static const _dsn = String.fromEnvironment(
+    'SENTRY_DSN',
+    defaultValue:
+        'https://5e78c64a5d53156635858225fe3bd217@o4512258093285376.ingest.us.sentry.io/4512258103967744',
+  );
 
   static bool get enabled => kReleaseMode && _dsn.isNotEmpty;
 

@@ -20,7 +20,7 @@
 - [ ] `P0` iOS Release／Archive build 成功。（2026-10-15 Release build 以 `--no-codesign` 通過；Archive 需完成 L 節 signing 後再驗證）
 - [x] `P0` Android Release build 成功。（2026-10-15 release APK 通過，確認含 `INTERNET` 權限；正式簽章見 L 節）
 - [x] `P1` 儲存測試輸出與 build log，方便回溯。（存於 `~/dev_data/PackPlan/qa_logs/2026-07-06/`）
-- [ ] 🆕 `P0` 以 `--dart-define=SENTRY_DSN=...` 建置的 release 版本可正常啟動（見 M 節）。
+- [ ] 🆕 `P0` 啟用 Sentry 的 release 版本可正常啟動（見 M 節）。
 
 自動化覆蓋重點：
 
@@ -226,7 +226,7 @@
 
 當機回報（Sentry）：
 
-- [ ] `P0` Release 版以 `--dart-define=SENTRY_DSN=...` 建置；debug 版不送任何事件。
+- [ ] `P0` Release 版自動啟用 Sentry（DSN 寫在 `crash_reporting.dart`）；debug 版不送任何事件。
 - [ ] `P0` 在測試版本觸發一次錯誤，Sentry 後台收到事件，且含 App 版本、機型、系統版本。
 - [ ] `P0` 事件中沒有清單內容、email 或其他個資；Sentry 專案已開啟「不儲存 IP」。
 
