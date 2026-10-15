@@ -464,13 +464,17 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
               children: [
                 Text('分享清單摘要', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: AppSpacing.md),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: _SharePreview(
-                      list: list,
-                      summary: weightSummary,
-                      unit: unit,
+                // 撐滿寬度,與下方兩顆按鈕對齊。
+                SizedBox(
+                  width: double.infinity,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: _SharePreview(
+                        list: list,
+                        summary: weightSummary,
+                        unit: unit,
+                      ),
                     ),
                   ),
                 ),

@@ -176,14 +176,14 @@ class ProfileScreen extends StatelessWidget {
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
                   title: '隱私權政策',
-                  subtitle: '資料使用與隱私說明',
+                  trailingIcon: Icons.open_in_new,
                   onTap: () => _openUrl(context, _privacyUrl),
                 ),
                 const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.description_outlined,
                   title: '使用條款',
-                  subtitle: '服務條款與免責聲明',
+                  trailingIcon: Icons.open_in_new,
                   onTap: () => _openUrl(context, _termsUrl),
                 ),
               ],
@@ -711,13 +711,17 @@ class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
+    this.trailingIcon = Icons.chevron_right,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
+
+  /// 右側 icon:預設 >;開外部網頁的項目用 [Icons.open_in_new]。
+  final IconData trailingIcon;
   final VoidCallback onTap;
 
   @override
@@ -728,8 +732,10 @@ class _ActionTile extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: palette.textPrimary),
       title: Text(title),
-      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-      trailing: Icon(Icons.chevron_right, color: palette.textPrimary),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
+      trailing: Icon(trailingIcon, color: palette.textPrimary),
       onTap: onTap,
     );
   }
