@@ -9,7 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 /// DSN 是公開的用戶端金鑰(不是密碼),直接寫在這裡;
 /// 要換專案時可用 `--dart-define=SENTRY_DSN=...` 覆蓋,給空字串則停用。
 ///
-/// 隱私:不送個資(sendDefaultPii=false)、不截圖、不送畫面結構,
+/// 隱私:不送個資(sendDefaultPii=false)、不截圖、不送畫面結構、不記 breadcrumbs,
 /// 只送錯誤訊息、堆疊、機型/系統/App 版本。IP 另在 Sentry 專案設定關閉儲存。
 abstract final class CrashReporting {
   static const _dsn = String.fromEnvironment(
@@ -32,6 +32,8 @@ abstract final class CrashReporting {
         ..sendDefaultPii = false
         ..attachScreenshot = false
         ..attachViewHierarchy = false
+        // 不記錄 breadcrumbs:預設會收系統事件與 debugPrint 輸出,可能帶出清單內容。
+        ..maxBreadcrumbs = 0
         // 只要錯誤回報,不做效能追蹤,省額度。
         ..tracesSampleRate = 0;
     }, appRunner: appRunner);
