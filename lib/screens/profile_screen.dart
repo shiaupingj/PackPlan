@@ -44,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
           AppSpacing.navBarClearance,
         ),
         children: [
-          if (FeatureFlags.pro) ...[
+          if (FeatureFlags.showProUpgrade) ...[
             const _ProUpgradeCard(),
             const SizedBox(height: AppSpacing.lg),
           ],
@@ -559,7 +559,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
           children: [
             Row(
               children: [
-                const Icon(Icons.cloud_outlined, color: AppColors.primary),
+                Icon(Icons.cloud_outlined, color: context.palette.textPrimary),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -632,9 +632,16 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: const Icon(Icons.history, size: 20),
+      leading: Icon(
+        Icons.history,
+        size: 20,
+        color: context.palette.textPrimary,
+      ),
       title: Text(_formatTime(entry.createdAt)),
-      subtitle: Text(_formatSize(entry.sizeBytes)),
+      subtitle: Text(
+        _formatSize(entry.sizeBytes),
+        style: TextStyle(color: context.palette.textSecondary),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -718,11 +725,14 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    // 左右 icon 與標題同色;第二行與「新登山/露營清單會使用…」同色。
+    // ListTile 會把 listTileTheme.textColor 套到 subtitle,所以這裡明確指定。
     return ListTile(
-      leading: Icon(icon, color: AppColors.primary),
+      leading: Icon(icon, color: palette.textPrimary),
       title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      subtitle: Text(subtitle, style: TextStyle(color: palette.textSecondary)),
+      trailing: Icon(Icons.chevron_right, color: palette.textPrimary),
       onTap: onTap,
     );
   }

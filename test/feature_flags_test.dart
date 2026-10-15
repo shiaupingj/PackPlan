@@ -49,4 +49,24 @@ void main() {
 
     expect(find.text('Step 2 / 4'), findsOneWidget);
   });
+
+  Future<void> openSettings(WidgetTester tester) async {
+    await tester.pumpWidget(
+      PackPlanApp(repository: InMemoryPackListRepository()),
+    );
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('正式版:設定頁不顯示升級 Pro 卡片', (tester) async {
+    previewPro(false);
+    await openSettings(tester);
+    expect(find.text('升級至 Pro 版'), findsNothing);
+  });
+
+  testWidgets('debug 預覽:設定頁顯示升級 Pro 卡片', (tester) async {
+    previewPro(true);
+    await openSettings(tester);
+    expect(find.text('升級至 Pro 版'), findsOneWidget);
+  });
 }

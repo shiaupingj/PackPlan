@@ -13,10 +13,13 @@ abstract final class FeatureFlags {
   @visibleForTesting
   static bool debugPreviewPro = kDebugMode;
 
+  /// 設定頁上方的「升級至 Pro」卡片;debug 預覽時也顯示。
+  static bool get showProUpgrade => pro || debugPreviewPro;
+
   /// 範本頁與建立流程要列出的範本;Pro 未開放時不列 Pro 範本。
   static Iterable<PackTemplate> visibleTemplates(
     Iterable<PackTemplate> templates,
-  ) => pro || debugPreviewPro
+  ) => showProUpgrade
       ? templates
       : templates.where((template) => !template.proOnly);
 
