@@ -484,13 +484,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                // 與清單內頁「新增項目 / 分類排序」同樣式,兩顆並排。
+                // 與設定頁「立即備份到雲端」同樣式(主題預設 FilledButton),只放文字,兩顆並排。
                 Row(
                   children: [
                     Expanded(
-                      child: PrimaryButton(
-                        label: '使用系統分享',
-                        icon: Icons.ios_share,
+                      child: FilledButton(
                         onPressed: () async {
                           try {
                             await SystemShareService.shareText(
@@ -507,13 +505,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                             );
                           }
                         },
+                        child: const Text('使用系統分享'),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
-                      child: PrimaryButton(
-                        label: '複製摘要',
-                        icon: Icons.copy_outlined,
+                      child: FilledButton(
                         onPressed: () async {
                           await Clipboard.setData(ClipboardData(text: summary));
                           if (sheetContext.mounted) {
@@ -524,6 +521,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                             const SnackBar(content: Text('清單摘要已複製')),
                           );
                         },
+                        child: const Text('複製摘要'),
                       ),
                     ),
                   ],
