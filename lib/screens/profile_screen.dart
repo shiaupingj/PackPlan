@@ -142,7 +142,7 @@ class ProfileScreen extends StatelessWidget {
                   subtitle: '將目前資料儲存為 JSON 檔案',
                   onTap: () => _exportBackup(context),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: context.palette.border),
                 _ActionTile(
                   icon: Icons.file_download_outlined,
                   title: '匯入備份',
@@ -172,14 +172,14 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               children: [
                 const _VersionTile(),
-                const Divider(height: 1),
+                Divider(height: 1, color: context.palette.border),
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
                   title: '隱私權政策',
                   subtitle: '資料使用與隱私說明',
                   onTap: () => _openUrl(context, _privacyUrl),
                 ),
-                const Divider(height: 1),
+                Divider(height: 1, color: context.palette.border),
                 _ActionTile(
                   icon: Icons.description_outlined,
                   title: '使用條款',
@@ -638,10 +638,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
         color: context.palette.textPrimary,
       ),
       title: Text(_formatTime(entry.createdAt)),
-      subtitle: Text(
-        _formatSize(entry.sizeBytes),
-        style: TextStyle(color: context.palette.textSecondary),
-      ),
+      subtitle: Text(_formatSize(entry.sizeBytes), style: t.bodySmall),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -726,12 +723,12 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    // 左右 icon 與標題同色;第二行與「新登山/露營清單會使用…」同色。
+    // 左右 icon 與標題同色;第二行與「新登山/露營清單會使用…」同字級同色(bodySmall)。
     // ListTile 會把 listTileTheme.textColor 套到 subtitle,所以這裡明確指定。
     return ListTile(
       leading: Icon(icon, color: palette.textPrimary),
       title: Text(title),
-      subtitle: Text(subtitle, style: TextStyle(color: palette.textSecondary)),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
       trailing: Icon(Icons.chevron_right, color: palette.textPrimary),
       onTap: onTap,
     );
