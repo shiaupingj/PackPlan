@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 線上參考重量(Firestore)與 Google Drive 備份需要連網;
+         debug/profile 的 manifest 另有宣告,只放那邊 release 版會連不上。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="PackPlan"
         android:name="${applicationName}"

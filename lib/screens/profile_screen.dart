@@ -2,14 +2,17 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app_scope.dart';
 import '../app/cloud_backup_scope.dart';
+import '../app/feature_flags.dart';
 import '../models/user_settings.dart';
 import '../services/backup_codec.dart';
 import '../services/cloud_backup_service.dart';
 import '../services/formatters.dart';
+import '../services/support_mail.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
@@ -19,7 +22,6 @@ import '../widgets/app_dialog_title.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  static const _appVersion = '1.0.0+1';
   static const _privacyUrl =
       'https://shiaupingj.github.io/appspdoit/legal/packplan-privacy.html';
   static const _termsUrl =
@@ -41,8 +43,10 @@ class ProfileScreen extends StatelessWidget {
           AppSpacing.navBarClearance,
         ),
         children: [
-          const _ProUpgradeCard(),
-          const SizedBox(height: AppSpacing.lg),
+          if (FeatureFlags.pro) ...[
+            const _ProUpgradeCard(),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           Text('偏好設定', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
           Card(
@@ -153,22 +157,11 @@ class ProfileScreen extends StatelessWidget {
           Text('聯繫', style: t.titleLarge),
           const SizedBox(height: AppSpacing.md),
           Card(
-            child: Column(
-              children: [
-                _ActionTile(
-                  icon: Icons.feedback_outlined,
-                  title: '建議與反饋',
-                  subtitle: '提供使用建議或回報問題',
-                  onTap: () => _showSnack(context, '建議與反饋會在 1.1 版本補上'),
-                ),
-                const Divider(height: 1),
-                _ActionTile(
-                  icon: Icons.ios_share_outlined,
-                  title: '分享給朋友',
-                  subtitle: '邀請朋友一起建立打包清單',
-                  onTap: () => _showSnack(context, '分享功能會在 1.1 版本補上'),
-                ),
-              ],
+            child: _ActionTile(
+              icon: Icons.feedback_outlined,
+              title: '建議與反饋',
+              subtitle: '提供使用建議或回報問題',
+              onTap: () => _sendFeedback(context),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -177,12 +170,7 @@ class ProfileScreen extends StatelessWidget {
           Card(
             child: Column(
               children: [
-                _ActionTile(
-                  icon: Icons.new_releases_outlined,
-                  title: '版本資訊',
-                  subtitle: 'PackPlan $_appVersion',
-                  onTap: () => _showSnack(context, '目前版本 $_appVersion'),
-                ),
+                const _VersionTile(),
                 const Divider(height: 1),
                 _ActionTile(
                   icon: Icons.privacy_tip_outlined,
@@ -203,6 +191,27 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// 安裝檔的版本(pubspec 的 version);讀不到時為 null。
+  /// PackageInfo 自己會快取,這裡不另存 Future(跨 zone 重用會卡住)。
+  static Future<String?> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return '${info.version} (${info.buildNumber})';
+    } on Object {
+      return null;
+    }
+  }
+
+  static Future<void> _sendFeedback(BuildContext context) async {
+    final version = await _loadAppVersion();
+    final opened = await SupportMail.open(
+      SupportMail.feedback(appVersion: version),
+    );
+    if (!opened && context.mounted) {
+      _showSnack(context, '無法開啟郵件 App，請寄信到 ${SupportMail.address}');
+    }
   }
 
   static void _showSnack(BuildContext context, String message) {
@@ -309,6 +318,33 @@ class ProfileScreen extends StatelessWidget {
     } on Object {
       if (context.mounted) _showSnack(context, '無法匯入備份，請確認檔案內容');
     }
+  }
+}
+
+class _VersionTile extends StatefulWidget {
+  const _VersionTile();
+
+  @override
+  State<_VersionTile> createState() => _VersionTileState();
+}
+
+class _VersionTileState extends State<_VersionTile> {
+  late final Future<String?> _version = ProfileScreen._loadAppVersion();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _version,
+      builder: (context, snapshot) {
+        final version = snapshot.data ?? '—';
+        return _ActionTile(
+          icon: Icons.new_releases_outlined,
+          title: '版本資訊',
+          subtitle: 'PackPlan $version',
+          onTap: () => ProfileScreen._showSnack(context, '目前版本 $version'),
+        );
+      },
+    );
   }
 }
 

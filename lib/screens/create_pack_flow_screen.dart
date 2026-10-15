@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
+import '../app/feature_flags.dart';
 import '../data/pack_list_repository.dart';
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
@@ -389,7 +390,9 @@ class _TemplateStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final templates = AppScope.of(context).templates;
+    final templates = FeatureFlags.visibleTemplates(
+      AppScope.of(context).templates,
+    );
     final t = Theme.of(context).textTheme;
 
     return Column(

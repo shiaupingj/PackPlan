@@ -24,4 +24,20 @@ void main() {
     final uri = SupportMail.missingWeightReference(query: '登山扣');
     expect(uri.queryParameters['body'], isNot(contains('分類：')));
   });
+
+  test('建議與反饋信:主旨固定,內文附版本與平台', () {
+    final uri = SupportMail.feedback(appVersion: '1.0.0 (1)');
+
+    expect(uri.path, 'appspdoit@gmail.com');
+    expect(uri.queryParameters['subject'], 'PackPlan 建議與反饋');
+    final body = uri.queryParameters['body']!;
+    expect(body, contains('App 版本：1.0.0 (1)'));
+    expect(body, contains('平台：'));
+    expect(uri.toString(), isNot(contains('+')));
+  });
+
+  test('讀不到版本時寫「未知」', () {
+    final uri = SupportMail.feedback();
+    expect(uri.queryParameters['body'], contains('App 版本：未知'));
+  });
 }

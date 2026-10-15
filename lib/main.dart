@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app/pack_plan_bootstrap.dart';
 import 'data/pack_list_repository.dart';
@@ -11,6 +12,10 @@ import 'services/weight_reference_source.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // 版面只針對直向設計;iPhone 另在 Info.plist 限定直向。
+  unawaited(
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+  );
   final weightReferences = WeightReferenceRepository(
     source: FirestoreWeightReferenceSource(),
     cacheStore: FileWeightReferenceCacheStore(),

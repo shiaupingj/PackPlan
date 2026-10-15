@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:packplan/app/pack_plan_app.dart';
 import 'package:packplan/data/pack_list_repository.dart';
 import 'package:packplan/models/pack_item.dart';
+import 'package:packplan/services/support_mail.dart';
 import 'package:packplan/theme/app_colors.dart';
 import 'package:packplan/widgets/checklist_tile.dart';
 
@@ -19,6 +21,17 @@ Finder tileWith(String name, String weight) => find.byWidgetPredicate(
 void main() {
   const nbsp = '\u00A0';
   const categoryDropdownKey = ValueKey('item-editor-category-dropdown');
+
+  // \u6E2C\u8A66\u74B0\u5883\u6C92\u6709 package_info \u5916\u639B,\u4E0D mock \u7684\u8A71\u8B80\u7248\u672C\u865F\u6703\u4E00\u76F4\u7B49\u4E0D\u5230\u3002
+  setUpAll(
+    () => PackageInfo.setMockInitialValues(
+      appName: 'PackPlan',
+      packageName: 'com.packplan.packplan',
+      version: '1.0.0',
+      buildNumber: '1',
+      buildSignature: '',
+    ),
+  );
 
   Future<void> tapVisible(WidgetTester tester, Finder finder) async {
     await tester.ensureVisible(finder);
@@ -82,15 +95,15 @@ void main() {
 
     expect(find.text('基礎登山'), findsOneWidget);
     expect(find.text('城市旅遊'), findsOneWidget);
-    expect(find.text('極簡露營'), findsOneWidget);
     expect(find.text('進階登山'), findsOneWidget);
-    expect(find.text('長天數旅行'), findsOneWidget);
+    // Pro 未開放:不列 Pro 範本,也不顯示升級卡。
+    expect(find.text('極簡露營'), findsNothing);
+    expect(find.text('長天數旅行'), findsNothing);
 
     await tester.tap(find.text('設定'));
     await tester.pumpAndSettle();
 
-    expect(find.text('升級至 Pro 版'), findsOneWidget);
-    expect(find.text('NT\$ 150 一次性買斷'), findsOneWidget);
+    expect(find.text('升級至 Pro 版'), findsNothing);
     expect(find.text('偏好設定'), findsOneWidget);
     expect(find.text('單位設定'), findsOneWidget);
     expect(find.text('預設重量上限'), findsOneWidget);
@@ -104,6 +117,34 @@ void main() {
 
     expect(find.text('匯出備份'), findsOneWidget);
     expect(find.text('匯入備份'), findsOneWidget);
+  });
+
+  testWidgets('設定頁「建議與反饋」開啟回報信;沒有郵件 App 時提示信箱', (tester) async {
+    final opened = <Uri>[];
+    final original = SupportMail.launcher;
+    SupportMail.launcher = (uri) async {
+      opened.add(uri);
+      return false;
+    };
+    addTearDown(() => SupportMail.launcher = original);
+
+    await tester.pumpWidget(const PackPlanApp());
+    await tester.tap(find.text('設定'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('建議與反饋'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('分享給朋友'), findsNothing);
+    // 捲到剛出現時會被浮動導覽列蓋住,用 ensureVisible 捲到上方再點。
+    await tapVisible(tester, find.text('建議與反饋'));
+
+    expect(opened.single.queryParameters['subject'], 'PackPlan 建議與反饋');
+    expect(opened.single.queryParameters['body'], contains('App 版本：1.0.0 (1)'));
+    expect(find.text('無法開啟郵件 App，請寄信到 appspdoit@gmail.com'), findsOneWidget);
   });
 
   testWidgets('Create flow selects items and generates a list in four steps', (

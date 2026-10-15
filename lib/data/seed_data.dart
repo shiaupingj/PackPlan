@@ -29,7 +29,8 @@ abstract final class SeedData {
       id: 'advanced-hike',
       name: '進階登山',
       tripType: TripType.hiking,
-      proOnly: false, // 暫時解鎖以便測試進階登山候選清單
+      // 1.0 免費開放;內購上線(FeatureFlags.pro)時再決定要不要改回 Pro。
+      proOnly: false,
       description: '高海拔、長距離與進階裝備配置。',
     ),
     PackTemplate(

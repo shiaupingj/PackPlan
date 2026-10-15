@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
+import '../app/feature_flags.dart';
 import '../models/pack_template.dart';
 import '../theme/app_dimens.dart';
 import '../widgets/template_card.dart';
@@ -26,7 +27,7 @@ class TemplatesScreen extends StatelessWidget {
         children: [
           Text('選一種旅程，先產生可調整的清單。', style: t.bodySmall),
           const SizedBox(height: AppSpacing.lg),
-          ...repository.templates.map(
+          ...FeatureFlags.visibleTemplates(repository.templates).map(
             (template) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.md),
               child: TemplateCard(
