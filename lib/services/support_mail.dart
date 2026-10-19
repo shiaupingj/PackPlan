@@ -25,6 +25,20 @@ abstract final class SupportMail {
     );
   }
 
+  /// 設定頁「建議與反饋」:內文留空給使用者寫,底下附版本與平台方便排查。
+  static Uri feedback({String? appVersion}) {
+    return _mailto(
+      subject: 'PackPlan 建議與反饋',
+      body: [
+        '',
+        '',
+        '----',
+        'App 版本：${appVersion ?? '未知'}',
+        '平台：${defaultTargetPlatform.name}',
+      ].join('\n'),
+    );
+  }
+
   /// 用系統預設的郵件 App 開啟;沒有可用的郵件 App 時回傳 false。
   static Future<bool> open(Uri uri) async {
     try {
