@@ -131,7 +131,7 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Text('資料管理', style: t.titleLarge),
           const SizedBox(height: AppSpacing.xs),
-          Text('備份包含全部清單與偏好設定', style: t.bodySmall),
+          Text('備份包含全部清單、我的裝備與偏好設定', style: t.bodySmall),
           const SizedBox(height: AppSpacing.md),
           Card(
             child: Column(
@@ -241,6 +241,7 @@ class ProfileScreen extends StatelessWidget {
     final bytes = BackupCodec.encode(
       lists: repository.lists,
       settings: repository.settings,
+      gear: repository.gear,
     );
     final now = DateTime.now();
     final date =
@@ -296,7 +297,7 @@ class ProfileScreen extends StatelessWidget {
           titlePadding: AppDialogTitle.padding,
           title: const AppDialogTitle('匯入並取代目前資料？'),
           content: Text(
-            '將匯入 ${backup.lists.length} 份清單，並取代目前所有清單與偏好設定。'
+            '將匯入 ${backup.lists.length} 份清單，並取代目前所有清單、我的裝備與偏好設定。'
             '此動作無法復原，建議先匯出目前資料。',
           ),
           actions: [
@@ -312,9 +313,11 @@ class ProfileScreen extends StatelessWidget {
       );
       if (confirmed != true || !context.mounted) return;
 
-      AppScope.of(
-        context,
-      ).replaceAllData(lists: backup.lists, settings: backup.settings);
+      AppScope.of(context).replaceAllData(
+        lists: backup.lists,
+        settings: backup.settings,
+        gear: backup.gear,
+      );
       _showSnack(context, '已匯入 ${backup.lists.length} 份清單');
     } on BackupFormatException catch (error) {
       if (context.mounted) _showSnack(context, error.message);
@@ -511,6 +514,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     final bytes = BackupCodec.encode(
       lists: repository.lists,
       settings: repository.settings,
+      gear: repository.gear,
     );
     await _service.upload(bytes);
     await _refresh();
@@ -521,7 +525,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     final confirmed = await _confirm(
       title: '從這份備份還原？',
       message:
-          '將以 ${_formatTime(entry.createdAt)} 的備份取代目前所有清單與偏好設定，'
+          '將以 ${_formatTime(entry.createdAt)} 的備份取代目前所有清單、我的裝備與偏好設定，'
           '此動作無法復原。',
       confirmLabel: '還原',
     );
@@ -530,7 +534,11 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
       final repository = AppScope.of(context);
       final bytes = await _service.download(entry);
       final backup = BackupCodec.decode(bytes);
-      repository.replaceAllData(lists: backup.lists, settings: backup.settings);
+      repository.replaceAllData(
+        lists: backup.lists,
+        settings: backup.settings,
+        gear: backup.gear,
+      );
       _snack('已還原 ${backup.lists.length} 份清單');
     });
   }

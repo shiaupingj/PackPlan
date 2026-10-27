@@ -20,6 +20,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
+import '../widgets/gear_picker_sheet.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
 import '../widgets/weight_bar.dart';
@@ -235,9 +236,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                       child: PrimaryButton(
                         label: '新增項目',
                         icon: Icons.add,
-                        onPressed: () => _showItemEditor(
+                        onPressed: () => _addItem(
                           context,
-                          list.id,
+                          list,
+                          // 正在看某個容器分頁時,預設放進那個容器。
+                          initialContainerId: placement,
                           containers: containers,
                           categoryNames: categoryNames,
                           categoryIdByName: categoryIdByName,
@@ -340,6 +343,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                     ),
                     onDelete: (item) =>
                         _requestDeleteItem(context, list, item, containers),
+                    isInGear: (item) => repository.gear.any(
+                      (gear) => gear.id == item.gearItemId,
+                    ),
+                    onSaveToGear: (item) =>
+                        _saveItemToGear(context, list, item),
                     onAddItem: (categoryName) => _showItemEditor(
                       context,
                       list.id,
@@ -637,6 +645,69 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     );
     if (orderedNames == null) return;
     repository.reorderCategories(listId, orderedNames);
+  }
+
+  /// 「新增項目」:裝備庫有東西時先從我的裝備挑,也可以改手動輸入;
+  /// 裝備庫是空的就直接開手動輸入。
+  Future<void> _addItem(
+    BuildContext context,
+    PackList list, {
+    String? initialContainerId,
+    required List<PackItem> containers,
+    required List<String> categoryNames,
+    required Map<String, String> categoryIdByName,
+  }) async {
+    final repository = AppScope.of(context);
+    if (repository.gear.isNotEmpty) {
+      final picked = await showGearPicker(
+        context,
+        library: repository.gear,
+        addedGearIds: {
+          for (final item in list.items)
+            if (item.gearItemId case final id?) id,
+        },
+        unit: repository.settings.weightUnit,
+        containers: containers,
+        initialContainerId: initialContainerId,
+      );
+      if (picked == null || !context.mounted) return;
+      if (!picked.manual) {
+        final added = repository.addGearToList(
+          list.id,
+          picked.gearIds,
+          containerItemId: picked.containerItemId,
+        );
+        if (added > 0) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已從我的裝備加入 $added 項')));
+        }
+        return;
+      }
+    }
+    await _showItemEditor(
+      context,
+      list.id,
+      containers: containers,
+      categoryNames: categoryNames,
+      categoryIdByName: categoryIdByName,
+    );
+  }
+
+  void _saveItemToGear(BuildContext context, PackList list, PackItem item) {
+    final repository = AppScope.of(context);
+    final alreadySaved = repository.gear.any(
+      (gear) => gear.id == item.gearItemId,
+    );
+    final gear = repository.saveItemToGear(list.id, item.id);
+    if (gear == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          alreadySaved ? '「${gear.name}」已在我的裝備' : '已收藏「${gear.name}」到我的裝備',
+        ),
+      ),
+    );
   }
 
   Future<void> _showItemEditor(
@@ -1399,6 +1470,8 @@ class _CategorySection extends StatelessWidget {
     required this.onChanged,
     required this.onEdit,
     required this.onDelete,
+    required this.isInGear,
+    required this.onSaveToGear,
     required this.onAddItem,
     required this.canReorder,
     required this.onReorder,
@@ -1415,6 +1488,8 @@ class _CategorySection extends StatelessWidget {
   final void Function(PackItem item, bool checked) onChanged;
   final ValueChanged<PackItem> onEdit;
   final ValueChanged<PackItem> onDelete;
+  final bool Function(PackItem item) isInGear;
+  final ValueChanged<PackItem> onSaveToGear;
   final ValueChanged<String> onAddItem;
   final bool canReorder;
   final ValueChanged<List<PackItem>> onReorder;
@@ -1523,15 +1598,19 @@ class _CategorySection extends StatelessWidget {
                             ),
                             showWeight: showWeight,
                             weightMissing: item.isWeightMissing,
-                            weightTooltip:
-                                item.weightSource == WeightSource.online
-                                ? WeightReferenceLabels.tooltip(
-                                    item.catalogKey == null
-                                        ? null
-                                        : references.lookup(item.catalogKey!),
-                                    unit,
-                                  )
-                                : null,
+                            weightTooltip: switch (item.weightSource) {
+                              WeightSource.online =>
+                                WeightReferenceLabels.tooltip(
+                                  item.catalogKey == null
+                                      ? null
+                                      : references.lookup(item.catalogKey!),
+                                  unit,
+                                ),
+                              WeightSource.gear => '來自我的裝備',
+                              _ => null,
+                            },
+                            weightFromGear:
+                                item.weightSource == WeightSource.gear,
                             checked: item.checked,
                             dimmed:
                                 ulMode &&
@@ -1602,6 +1681,23 @@ class _CategorySection extends StatelessWidget {
                     onEdit(item);
                   },
                 ),
+                if (isInGear(item))
+                  const ListTile(
+                    key: ValueKey('item-action-in-gear'),
+                    enabled: false,
+                    leading: Icon(Icons.backpack),
+                    title: Text('已在我的裝備'),
+                  )
+                else
+                  ListTile(
+                    key: const ValueKey('item-action-save-to-gear'),
+                    leading: const Icon(Icons.backpack_outlined),
+                    title: const Text('收藏到我的裝備'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onSaveToGear(item);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(
                     Icons.delete_outline,
