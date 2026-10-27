@@ -5,8 +5,8 @@ enum ItemNecessity { required, optional, luxury }
 enum WeightClass { packed, worn, vehicle }
 
 /// 重量數值的來源:[unset] 尚未填(範本預設 0g)、[manual] 使用者自填、
-/// [online] 由線上參考重量庫帶入。
-enum WeightSource { unset, manual, online }
+/// [online] 由線上參考重量庫帶入、[gear] 從「我的裝備」加入時帶入。
+enum WeightSource { unset, manual, online, gear }
 
 class PackItem {
   const PackItem({
@@ -24,6 +24,7 @@ class PackItem {
     this.containerItemId,
     this.weightSource = WeightSource.manual,
     this.catalogKey,
+    this.gearItemId,
   });
 
   static const Object _unset = Object();
@@ -45,6 +46,9 @@ class PackItem {
   /// 範本項目的穩定識別碼(如 `sleeping-bag`),用來對應線上參考重量;自訂項目為 null。
   final String? catalogKey;
 
+  /// 從「我的裝備」加入或收藏回裝備庫時對應的 [GearItem] id;只記來源,不同步內容。
+  final String? gearItemId;
+
   bool get isWeightMissing => weightSource == WeightSource.unset;
 
   int get totalWeightGram => weightGram * quantity;
@@ -64,6 +68,7 @@ class PackItem {
     Object? containerItemId = _unset,
     WeightSource? weightSource,
     Object? catalogKey = _unset,
+    Object? gearItemId = _unset,
   }) {
     return PackItem(
       id: id ?? this.id,
@@ -84,6 +89,9 @@ class PackItem {
       catalogKey: identical(catalogKey, _unset)
           ? this.catalogKey
           : catalogKey as String?,
+      gearItemId: identical(gearItemId, _unset)
+          ? this.gearItemId
+          : gearItemId as String?,
     );
   }
 }

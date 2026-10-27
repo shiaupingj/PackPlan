@@ -15,6 +15,7 @@ class ChecklistTile extends StatelessWidget {
     this.showWeight = true,
     this.weightMissing = false,
     this.weightTooltip,
+    this.weightFromGear = false,
     required this.checked,
     this.onChanged,
     this.onEdit,
@@ -32,8 +33,11 @@ class ChecklistTile extends StatelessWidget {
   /// 尚未填重量:以淡色「— g」取代 0 g。
   final bool weightMissing;
 
-  /// 非 null 時在重量後加 ☁,點一下顯示此說明(線上參考值與範圍)。
+  /// 非 null 時在重量後加 ☁(或背包),點一下顯示此說明(線上參考值與範圍、來自我的裝備)。
   final String? weightTooltip;
+
+  /// 重量來自「我的裝備」:說明圖示改用背包,與線上參考的 ☁ 區分。
+  final bool weightFromGear;
   final bool checked;
   final ValueChanged<bool>? onChanged;
   final VoidCallback? onEdit;
@@ -131,8 +135,14 @@ class ChecklistTile extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.only(left: 4),
                                     child: Icon(
-                                      Icons.cloud_outlined,
-                                      key: const ValueKey('weight-online-icon'),
+                                      weightFromGear
+                                          ? Icons.backpack_outlined
+                                          : Icons.cloud_outlined,
+                                      key: ValueKey(
+                                        weightFromGear
+                                            ? 'weight-gear-icon'
+                                            : 'weight-online-icon',
+                                      ),
                                       size: 16,
                                       color: checked || dimmed
                                           ? context.palette.textTertiary

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart' show ThemeMode;
 
+import '../models/gear_item.dart';
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
 import '../models/user_settings.dart';
@@ -12,10 +13,14 @@ class PackPlanBackup {
     required this.lists,
     required this.settings,
     required this.exportedAt,
+    this.gear,
   });
 
   final List<PackList> lists;
   final UserSettings settings;
+
+  /// 「我的裝備」;v1 備份沒有裝備庫時為 null,還原時應保留目前的裝備。
+  final List<GearItem>? gear;
   final DateTime exportedAt;
 }
 
@@ -29,12 +34,14 @@ class BackupFormatException implements Exception {
 }
 
 class BackupCodec {
-  static const int currentVersion = 1;
+  /// v2 起加入「我的裝備」(`gear`)。v1 仍可讀,只是沒有裝備資料。
+  static const int currentVersion = 2;
   static const int maxFileBytes = 10 * 1024 * 1024;
 
   static Uint8List encode({
     required List<PackList> lists,
     required UserSettings settings,
+    List<GearItem> gear = const [],
     DateTime? exportedAt,
   }) {
     final payload = <String, Object?>{
@@ -47,6 +54,7 @@ class BackupCodec {
         'themeMode': settings.themeMode.name,
       },
       'lists': lists.map(_encodeList).toList(),
+      'gear': gear.map(_encodeGear).toList(),
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(payload)));
   }
@@ -66,7 +74,7 @@ class BackupCodec {
         throw const BackupFormatException('這不是 PackPlan 備份檔');
       }
       final version = _integer(root['version'], '備份版本');
-      if (version != currentVersion) {
+      if (version < 1 || version > currentVersion) {
         throw BackupFormatException('不支援的備份版本：$version');
       }
 
@@ -99,6 +107,17 @@ class BackupCodec {
         throw const BackupFormatException('備份內含重複的清單識別碼');
       }
 
+      final gear = version < 2
+          ? null
+          : _list(
+              root['gear'],
+              '我的裝備',
+            ).map((entry) => _decodeGear(_map(entry, '我的裝備'))).toList();
+      if (gear != null &&
+          gear.map((item) => item.id).toSet().length != gear.length) {
+        throw const BackupFormatException('備份內含重複的裝備庫識別碼');
+      }
+
       return PackPlanBackup(
         lists: lists,
         settings: UserSettings(
@@ -106,6 +125,7 @@ class BackupCodec {
           defaultWeightLimitGram: limit,
           themeMode: themeMode,
         ),
+        gear: gear,
         exportedAt: DateTime.parse(_string(root['exportedAt'], '匯出時間')),
       );
     } on BackupFormatException {
@@ -147,6 +167,7 @@ class BackupCodec {
             'containerItemId': item.containerItemId,
             'weightSource': item.weightSource.name,
             'catalogKey': item.catalogKey,
+            'gearItemId': item.gearItemId,
           },
         )
         .toList(),
@@ -249,6 +270,11 @@ class BackupCodec {
       throw const BackupFormatException('裝備的範本識別碼格式無效');
     }
 
+    final gearItemId = json['gearItemId'];
+    if (gearItemId != null && gearItemId is! String) {
+      throw const BackupFormatException('裝備的裝備庫識別碼格式無效');
+    }
+
     final weightGram = _nonNegativeInteger(json['weightGram'], '裝備重量');
     final weightSourceName = json['weightSource'];
     // 舊版資料沒有 weightSource:0g 視為尚未填,其餘視為使用者自填。
@@ -276,6 +302,56 @@ class BackupCodec {
       containerItemId: containerItemId as String?,
       weightSource: weightSource,
       catalogKey: catalogKey as String?,
+      gearItemId: gearItemId as String?,
+    );
+  }
+
+  static Map<String, Object?> _encodeGear(GearItem gear) => {
+    'id': gear.id,
+    'name': gear.name,
+    'categoryId': gear.categoryId,
+    'categoryName': gear.categoryName,
+    'weightGram': gear.weightGram,
+    'weightClass': gear.weightClass.name,
+    'isContainer': gear.isContainer,
+    'catalogKey': gear.catalogKey,
+    'usageCount': gear.usageCount,
+    'lastUsedAt': gear.lastUsedAt?.toUtc().toIso8601String(),
+    'createdAt': gear.createdAt.toUtc().toIso8601String(),
+    'updatedAt': gear.updatedAt.toUtc().toIso8601String(),
+  };
+
+  static GearItem _decodeGear(Map<String, Object?> json) {
+    final weightClassName = _string(json['weightClass'], '裝備放置位置');
+    final weightClass = WeightClass.values
+        .where((value) => value.name == weightClassName)
+        .firstOrNull;
+    if (weightClass == null) {
+      throw BackupFormatException('無效的裝備放置位置：$weightClassName');
+    }
+    final catalogKey = json['catalogKey'];
+    if (catalogKey != null && catalogKey is! String) {
+      throw const BackupFormatException('裝備庫的範本識別碼格式無效');
+    }
+    final lastUsedAt = json['lastUsedAt'];
+    return GearItem(
+      id: _nonEmptyString(json['id'], '裝備庫識別碼'),
+      name: _nonEmptyString(json['name'], '裝備庫名稱'),
+      categoryId: _nonEmptyString(json['categoryId'], '裝備庫分類識別碼'),
+      categoryName: _nonEmptyString(json['categoryName'], '裝備庫分類名稱'),
+      weightGram: _nonNegativeInteger(json['weightGram'], '裝備庫重量'),
+      weightClass: weightClass,
+      // 穿戴、放車上的裝備不能當容器;舊資料不一致時直接修正。
+      isContainer:
+          _boolean(json['isContainer'], '裝備庫容器狀態') &&
+          weightClass == WeightClass.packed,
+      catalogKey: catalogKey as String?,
+      usageCount: _nonNegativeInteger(json['usageCount'], '裝備使用次數'),
+      lastUsedAt: lastUsedAt == null
+          ? null
+          : DateTime.parse(_string(lastUsedAt, '裝備最後使用時間')),
+      createdAt: DateTime.parse(_string(json['createdAt'], '裝備建立時間')),
+      updatedAt: DateTime.parse(_string(json['updatedAt'], '裝備更新時間')),
     );
   }
 
