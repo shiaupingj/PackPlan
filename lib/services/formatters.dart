@@ -5,7 +5,8 @@ abstract final class WeightFormatters {
 
   static String gram(int gram, {WeightUnit unit = WeightUnit.kg}) {
     if (unit == WeightUnit.gram) return '$gram${_nbsp}g';
-    if (gram >= 1000) return '${(gram / 1000).toStringAsFixed(1)}${_nbsp}kg';
+    // kg 固定 2 位小數(1980 g → 1.98 kg),型號間幾十克的差距才看得出來。
+    if (gram >= 1000) return '${(gram / 1000).toStringAsFixed(2)}${_nbsp}kg';
     return '$gram${_nbsp}g';
   }
 

@@ -38,19 +38,19 @@ void main() {
 
   test('range:兩端換算後相同時不顯示範圍', () {
     expect(
-      WeightReferenceLabels.range(_w('a', min: 1850, max: 1890), WeightUnit.kg),
+      WeightReferenceLabels.range(_w('a', min: 1851, max: 1854), WeightUnit.kg),
       '',
     );
     expect(
       WeightReferenceLabels.range(
-        _w('a', min: 1850, max: 1890),
+        _w('a', min: 1851, max: 1854),
         WeightUnit.gram,
       ),
       isNotEmpty,
     );
     expect(
       WeightReferenceLabels.tooltip(
-        _w('a', min: 1850, max: 1890),
+        _w('a', min: 1851, max: 1854),
         WeightUnit.kg,
       ),
       '線上參考值',

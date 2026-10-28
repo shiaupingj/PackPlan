@@ -13,7 +13,7 @@ import '../theme/app_palette.dart';
 
 /// 參考重量的顯示文字(帶入值與範圍)。
 abstract final class WeightReferenceLabels {
-  /// 「700 g–1.5 kg」;沒有範圍,或兩端換算後顯示相同(如 1850/1890 g 都是 1.9 kg)時回傳空字串。
+  /// 「700 g–1.50 kg」;沒有範圍,或兩端換算後顯示相同(如 1851/1854 g 都是 1.85 kg)時回傳空字串。
   static String range(GearWeight weight, WeightUnit unit) {
     if (!weight.hasRange) return '';
     final min = WeightFormatters.gram(weight.weightMin!, unit: unit);
@@ -21,7 +21,7 @@ abstract final class WeightReferenceLabels {
     return min == max ? '' : '$min–$max';
   }
 
-  /// 「線上參考值 · 範圍 700 g–1.5 kg」;查不到資料時只顯示「線上參考值」。
+  /// 「線上參考值 · 範圍 700 g–1.50 kg」;查不到資料時只顯示「線上參考值」。
   static String tooltip(GearWeight? weight, WeightUnit unit) {
     final text = weight == null ? '' : range(weight, unit);
     return text.isEmpty ? '線上參考值' : '線上參考值 · 範圍 $text';
