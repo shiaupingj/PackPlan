@@ -836,4 +836,49 @@ void main() {
     expect(find.textContaining(RegExp(r'/ 3\.58.* 總重$')), findsOneWidget);
     expect(find.textContaining('穿戴 540'), findsWidgets);
   });
+
+  testWidgets('重量卡片的穿戴與車上排同一行,車上靠右對齊', (tester) async {
+    final repository = InMemoryPackListRepository();
+    await tester.pumpWidget(PackPlanApp(repository: repository));
+
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+    // 水壺在上衣前面,依清單順序往下捲。
+    for (final (id, placement) in [
+      ('water-bottle', '放車上'),
+      ('shirt', '身上穿戴'),
+    ]) {
+      final tile = find.byKey(ValueKey('checklist-tile-$id'));
+      await tester.scrollUntilVisible(
+        tile,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tapVisible(tester, tile);
+      await tapVisible(
+        tester,
+        find.byKey(const ValueKey('item-editor-placement')),
+      );
+      await tapVisible(tester, find.text(placement).last);
+      await tapVisible(tester, find.widgetWithText(FilledButton, '儲存'));
+    }
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('weight-header-worn')),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final worn = tester.getRect(
+      find.byKey(const ValueKey('weight-header-worn')),
+    );
+    final vehicle = tester.getRect(
+      find.byKey(const ValueKey('weight-header-vehicle')),
+    );
+    final limit = tester.getRect(
+      find.byKey(const ValueKey('weight-header-limit')),
+    );
+    expect(vehicle.center.dy, closeTo(worn.center.dy, 0.5));
+    expect(vehicle.left, greaterThan(worn.right));
+    expect(vehicle.right, closeTo(limit.right, 0.5));
+  });
 }
