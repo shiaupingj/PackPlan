@@ -890,20 +890,31 @@ class _WeightHeader extends StatelessWidget {
                 ),
               ],
             ),
-            if (summary.wornGram > 0) ...[
+            // 穿戴靠左、車上靠右排同一行;只有其中一項時靠左。
+            // 字級放大放不下時各自縮小,不換行。
+            if (summary.wornGram > 0 || summary.vehicleGram > 0) ...[
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                '穿戴 ${WeightFormatters.gram(summary.wornGram, unit: unit)}'
-                '（不計背重）',
-                style: t.bodySmall?.copyWith(color: AppColors.primary),
-              ),
-            ],
-            if (summary.vehicleGram > 0) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                '車上 ${WeightFormatters.gram(summary.vehicleGram, unit: unit)}'
-                '（不計背重）',
-                style: t.bodySmall?.copyWith(color: AppColors.primary),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (summary.wornGram > 0)
+                    _offPackWeight(
+                      context,
+                      key: const ValueKey('weight-header-worn'),
+                      label: '穿戴',
+                      gram: summary.wornGram,
+                    ),
+                  if (summary.vehicleGram > 0) ...[
+                    if (summary.wornGram > 0)
+                      const SizedBox(width: AppSpacing.sm),
+                    _offPackWeight(
+                      context,
+                      key: const ValueKey('weight-header-vehicle'),
+                      label: '車上',
+                      gram: summary.vehicleGram,
+                    ),
+                  ],
+                ],
               ),
             ],
             if (heaviestItem case final item?
@@ -940,6 +951,28 @@ class _WeightHeader extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             footer,
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 不計背重的重量(穿戴、車上),橘色小字。
+  Widget _offPackWeight(
+    BuildContext context, {
+    required Key key,
+    required String label,
+    required int gram,
+  }) {
+    return Flexible(
+      child: FittedBox(
+        key: key,
+        fit: BoxFit.scaleDown,
+        child: Text(
+          '$label ${WeightFormatters.gram(gram, unit: unit)}（不計背重）',
+          maxLines: 1,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
         ),
       ),
     );
