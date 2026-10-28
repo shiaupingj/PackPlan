@@ -36,7 +36,7 @@ class ChecklistTile extends StatelessWidget {
   /// 非 null 時在重量後加 ☁,點一下顯示此說明(線上參考值與範圍)。
   final String? weightTooltip;
 
-  /// 非 null 時在名稱下方以小字顯示一行備註(過長以 … 截斷)。
+  /// 非 null 時在名稱列最後加 (i),點一下顯示備註。
   final String? note;
   final bool checked;
   final ValueChanged<bool>? onChanged;
@@ -145,20 +145,28 @@ class ChecklistTile extends StatelessWidget {
                                   ),
                                 ),
                             ],
+                            // 圖示只有 16,外面留 28×28 的點擊範圍。
+                            if (note != null)
+                              Tooltip(
+                                key: const ValueKey('checklist-tile-note'),
+                                message: note,
+                                triggerMode: TooltipTriggerMode.tap,
+                                showDuration: const Duration(seconds: 4),
+                                child: SizedBox.square(
+                                  dimension: 28,
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: checked || dimmed
+                                        ? context.palette.textTertiary
+                                        : context.palette.textSecondary,
+                                  ),
+                                ),
+                              ),
                           ],
                         );
                       },
                     ),
-                    if (note != null)
-                      Text(
-                        note!,
-                        key: const ValueKey('checklist-tile-note'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: t.bodySmall?.copyWith(
-                          color: context.palette.textTertiary,
-                        ),
-                      ),
                     if (badgeLabel != null) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Container(
