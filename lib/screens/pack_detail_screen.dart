@@ -1532,6 +1532,7 @@ class _CategorySection extends StatelessWidget {
                                     unit,
                                   )
                                 : null,
+                            note: item.note,
                             checked: item.checked,
                             dimmed:
                                 ulMode &&
@@ -1989,6 +1990,9 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   late final TextEditingController _quantityController = TextEditingController(
     text: (widget.item?.quantity ?? 1).toString(),
   );
+  late final TextEditingController _noteController = TextEditingController(
+    text: widget.item?.note ?? '',
+  );
   late ItemNecessity _necessity =
       widget.item?.necessity ?? ItemNecessity.optional;
   late WeightClass _weightClass =
@@ -2072,6 +2076,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     _newCategoryController.dispose();
     _weightController.dispose();
     _quantityController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -2279,6 +2284,15 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                   _containerToggle(context),
                 ],
               ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              key: const ValueKey('item-editor-note'),
+              controller: _noteController,
+              decoration: const InputDecoration(labelText: '備註'),
+              maxLines: 1,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
             ),
           ],
         ),
@@ -2490,6 +2504,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final category = _categoryController.text.trim();
     final weight = int.tryParse(_weightController.text.trim()) ?? 0;
     final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
+    final note = _noteController.text.trim();
     if (name.isEmpty || category.isEmpty || weight < 0 || quantity < 0) {
       ScaffoldMessenger.of(
         context,
@@ -2540,6 +2555,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
                   ? null
                   : _containerItemId,
               weightSource: weightSource,
+              note: note.isEmpty ? null : note,
             );
     final saved = reference == null
         ? item

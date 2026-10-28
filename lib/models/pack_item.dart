@@ -24,6 +24,7 @@ class PackItem {
     this.containerItemId,
     this.weightSource = WeightSource.manual,
     this.catalogKey,
+    this.note,
   });
 
   static const Object _unset = Object();
@@ -45,6 +46,9 @@ class PackItem {
   /// 範本項目的穩定識別碼(如 `sleeping-bag`),用來對應線上參考重量;自訂項目為 null。
   final String? catalogKey;
 
+  /// 使用者自填的一行備註;沒填為 null。
+  final String? note;
+
   bool get isWeightMissing => weightSource == WeightSource.unset;
 
   int get totalWeightGram => weightGram * quantity;
@@ -64,6 +68,7 @@ class PackItem {
     Object? containerItemId = _unset,
     WeightSource? weightSource,
     Object? catalogKey = _unset,
+    Object? note = _unset,
   }) {
     return PackItem(
       id: id ?? this.id,
@@ -84,6 +89,7 @@ class PackItem {
       catalogKey: identical(catalogKey, _unset)
           ? this.catalogKey
           : catalogKey as String?,
+      note: identical(note, _unset) ? this.note : note as String?,
     );
   }
 }
