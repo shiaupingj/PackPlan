@@ -516,7 +516,9 @@ void main() {
     await tester.tap(tab('pack'));
     await tester.pumpAndSettle();
     expect(
-      find.text('本體 1.2${nbsp}kg · 內容物 2.9${nbsp}kg · 合計 4.1${nbsp}kg · 7 項'),
+      find.text(
+        '本體 1.20${nbsp}kg · 內容物 2.92${nbsp}kg · 合計 4.12${nbsp}kg · 7 項',
+      ),
       findsOneWidget,
     );
     expect(tile('energy-bar'), findsOneWidget);
@@ -831,7 +833,7 @@ void main() {
       -300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.textContaining(RegExp(r'/ 3\.6.* 總重$')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'/ 3\.58.* 總重$')), findsOneWidget);
     expect(find.textContaining('穿戴 540'), findsWidgets);
   });
 }
