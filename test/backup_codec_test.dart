@@ -360,4 +360,24 @@ void main() {
     expect(chair.containerItemId, isNull);
     expect(decoded.lists.single.vehicleWeightGram, 900);
   });
+
+  test('項目備註存檔後讀得回來,空白備註讀成 null', () {
+    final repository = InMemoryPackListRepository();
+    final list = repository.lists.first;
+    final withNotes = list.copyWith(
+      items: [
+        list.items[0].copyWith(note: '左側口袋'),
+        list.items[1].copyWith(note: '   '),
+        ...list.items.skip(2),
+      ],
+    );
+
+    final decoded = BackupCodec.decode(
+      BackupCodec.encode(lists: [withNotes], settings: repository.settings),
+    );
+    final items = decoded.lists.single.items;
+    expect(items[0].note, '左側口袋');
+    expect(items[1].note, isNull);
+    expect(items[2].note, isNull);
+  });
 }

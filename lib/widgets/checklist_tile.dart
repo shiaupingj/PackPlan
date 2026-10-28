@@ -15,6 +15,7 @@ class ChecklistTile extends StatelessWidget {
     this.showWeight = true,
     this.weightMissing = false,
     this.weightTooltip,
+    this.note,
     required this.checked,
     this.onChanged,
     this.onEdit,
@@ -34,6 +35,9 @@ class ChecklistTile extends StatelessWidget {
 
   /// 非 null 時在重量後加 ☁,點一下顯示此說明(線上參考值與範圍)。
   final String? weightTooltip;
+
+  /// 非 null 時在名稱下方以小字顯示一行備註(過長以 … 截斷)。
+  final String? note;
   final bool checked;
   final ValueChanged<bool>? onChanged;
   final VoidCallback? onEdit;
@@ -145,6 +149,16 @@ class ChecklistTile extends StatelessWidget {
                         );
                       },
                     ),
+                    if (note != null)
+                      Text(
+                        note!,
+                        key: const ValueKey('checklist-tile-note'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.bodySmall?.copyWith(
+                          color: context.palette.textTertiary,
+                        ),
+                      ),
                     if (badgeLabel != null) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Container(

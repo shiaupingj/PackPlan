@@ -147,6 +147,7 @@ class BackupCodec {
             'containerItemId': item.containerItemId,
             'weightSource': item.weightSource.name,
             'catalogKey': item.catalogKey,
+            'note': item.note,
           },
         )
         .toList(),
@@ -249,6 +250,13 @@ class BackupCodec {
       throw const BackupFormatException('裝備的範本識別碼格式無效');
     }
 
+    // 舊版資料沒有 note;空白備註一律存成 null。
+    final note = json['note'];
+    if (note != null && note is! String) {
+      throw const BackupFormatException('裝備的備註格式無效');
+    }
+    final trimmedNote = (note as String?)?.trim();
+
     final weightGram = _nonNegativeInteger(json['weightGram'], '裝備重量');
     final weightSourceName = json['weightSource'];
     // 舊版資料沒有 weightSource:0g 視為尚未填,其餘視為使用者自填。
@@ -276,6 +284,7 @@ class BackupCodec {
       containerItemId: containerItemId as String?,
       weightSource: weightSource,
       catalogKey: catalogKey as String?,
+      note: trimmedNote == null || trimmedNote.isEmpty ? null : trimmedNote,
     );
   }
 
