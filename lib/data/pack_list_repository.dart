@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/gear_item.dart';
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
 import '../models/pack_template.dart';
@@ -40,14 +41,20 @@ abstract interface class PackListRepository extends Listenable {
   List<PackTemplate> get templates;
   UserSettings get settings;
 
+  /// 「我的裝備」,依建立順序。
+  List<GearItem> get gear;
+
   /// 最近一次寫入本機儲存是否失敗。失敗期間 UI 應提示使用者變更可能遺失。
   bool get hasSaveError;
 
   PackList? findById(String id);
   void updateSettings(UserSettings settings);
+
+  /// 以備份取代全部資料。[gear] 為 null(舊版備份沒有裝備庫)時保留目前的裝備。
   void replaceAllData({
     required List<PackList> lists,
     required UserSettings settings,
+    List<GearItem>? gear,
   });
   void renameList(String listId, String title);
   void updateTripSettings(
@@ -75,6 +82,25 @@ abstract interface class PackListRepository extends Listenable {
   void upsertItems(String listId, List<PackItem> items);
   void deleteItem(String listId, String itemId);
   void reorderItems(String listId, List<PackItem> reorderedItems);
+
+  /// 新增或更新一件裝備。清單裡的項目是快照,不會跟著改。
+  void upsertGear(GearItem gear);
+
+  /// 刪除裝備;已加入的清單項目不受影響。
+  void deleteGear(String gearId);
+
+  /// 把裝備複製成清單項目(重量來源記為 [WeightSource.gear]),並更新使用次數。
+  /// 放背包內的裝備放進 [containerItemId](不是這份清單的容器時改放第一個容器);
+  /// 穿戴、放車上與本身是容器的裝備不放進容器。回傳實際加入的件數。
+  int addGearToList(
+    String listId,
+    List<String> gearIds, {
+    String? containerItemId,
+  });
+
+  /// 把清單項目收藏到「我的裝備」並記下對應關係。
+  /// 已收藏過且那件裝備還在時,直接回傳既有的裝備、不重複建立。
+  GearItem? saveItemToGear(String listId, String itemId);
 }
 
 class InMemoryPackListRepository extends ChangeNotifier
@@ -82,11 +108,14 @@ class InMemoryPackListRepository extends ChangeNotifier
   InMemoryPackListRepository({
     List<PackList>? initialLists,
     UserSettings initialSettings = const UserSettings(),
+    List<GearItem> initialGear = const [],
   }) : _lists = initialLists == null ? SeedData.lists() : [...initialLists],
-       _settings = initialSettings;
+       _settings = initialSettings,
+       _gear = [...initialGear];
 
   final List<PackList> _lists;
   UserSettings _settings;
+  final List<GearItem> _gear;
 
   @override
   List<PackList> get lists {
@@ -102,6 +131,9 @@ class InMemoryPackListRepository extends ChangeNotifier
   UserSettings get settings => _settings;
 
   @override
+  List<GearItem> get gear => List.unmodifiable(_gear);
+
+  @override
   bool get hasSaveError => false;
 
   @override
@@ -114,11 +146,17 @@ class InMemoryPackListRepository extends ChangeNotifier
   void replaceAllData({
     required List<PackList> lists,
     required UserSettings settings,
+    List<GearItem>? gear,
   }) {
     _lists
       ..clear()
       ..addAll(lists);
     _settings = settings;
+    if (gear != null) {
+      _gear
+        ..clear()
+        ..addAll(gear);
+    }
     notifyListeners();
   }
 
@@ -451,6 +489,113 @@ class InMemoryPackListRepository extends ChangeNotifier
       updatedAt: DateTime.now(),
     );
     notifyListeners();
+  }
+
+  @override
+  void upsertGear(GearItem gear) {
+    final saved = gear.copyWith(
+      // 穿戴、放車上的裝備不能當容器。
+      isContainer: gear.isContainer && gear.weightClass == WeightClass.packed,
+      updatedAt: DateTime.now(),
+    );
+    final index = _gear.indexWhere((current) => current.id == gear.id);
+    if (index == -1) {
+      _gear.add(saved);
+    } else {
+      _gear[index] = saved;
+    }
+    notifyListeners();
+  }
+
+  @override
+  void deleteGear(String gearId) {
+    final before = _gear.length;
+    _gear.removeWhere((gear) => gear.id == gearId);
+    if (_gear.length != before) notifyListeners();
+  }
+
+  @override
+  int addGearToList(
+    String listId,
+    List<String> gearIds, {
+    String? containerItemId,
+  }) {
+    if (!_lists.any((list) => list.id == listId)) return 0;
+
+    final now = DateTime.now();
+    var added = 0;
+    for (final gearId in gearIds) {
+      final gearIndex = _gear.indexWhere((gear) => gear.id == gearId);
+      if (gearIndex == -1) continue;
+      final gear = _gear[gearIndex];
+      final list = _lists.firstWhere((list) => list.id == listId);
+      final carried = gear.weightClass == WeightClass.packed;
+      _upsertItem(
+        listId,
+        PackItem(
+          id: 'item-${now.microsecondsSinceEpoch}-$added',
+          categoryId: gear.categoryId,
+          categoryName: gear.categoryName,
+          name: gear.name,
+          weightGram: gear.weightGram,
+          quantity: 1,
+          checked: false,
+          necessity: ItemNecessity.optional,
+          sortOrder: 0,
+          weightClass: gear.weightClass,
+          isContainer: gear.isContainer && carried,
+          containerItemId: gear.isContainer || !carried
+              ? null
+              : list.items.any(
+                  (item) => item.id == containerItemId && item.isContainer,
+                )
+              ? containerItemId
+              : _defaultContainerId(list.items),
+          weightSource: WeightSource.gear,
+          catalogKey: gear.catalogKey,
+          gearItemId: gear.id,
+        ),
+      );
+      _gear[gearIndex] = gear.copyWith(
+        usageCount: gear.usageCount + 1,
+        lastUsedAt: now,
+      );
+      added += 1;
+    }
+    if (added > 0) notifyListeners();
+    return added;
+  }
+
+  @override
+  GearItem? saveItemToGear(String listId, String itemId) {
+    final list = findById(listId);
+    final item = list?.items.where((item) => item.id == itemId).firstOrNull;
+    if (list == null || item == null) return null;
+
+    final existing = _gear
+        .where((gear) => gear.id == item.gearItemId)
+        .firstOrNull;
+    if (existing != null) return existing;
+
+    final now = DateTime.now();
+    final gear = GearItem(
+      id: 'gear-${now.microsecondsSinceEpoch}',
+      name: item.name,
+      categoryId: item.categoryId,
+      categoryName: item.categoryName,
+      weightGram: item.weightGram,
+      weightClass: item.weightClass,
+      isContainer: item.isContainer,
+      catalogKey: item.catalogKey,
+      usageCount: 1,
+      lastUsedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    );
+    _gear.add(gear);
+    _upsertItem(listId, item.copyWith(gearItemId: gear.id));
+    notifyListeners();
+    return gear;
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/gear_item.dart';
 import '../models/pack_item.dart';
 import '../models/pack_list.dart';
 import '../models/pack_template.dart';
@@ -45,6 +46,7 @@ class PersistentPackListRepository extends ChangeNotifier
       delegate: InMemoryPackListRepository(
         initialLists: backup.lists,
         initialSettings: backup.settings,
+        initialGear: backup.gear ?? const [],
       ),
     );
   }
@@ -65,6 +67,9 @@ class PersistentPackListRepository extends ChangeNotifier
   UserSettings get settings => _delegate.settings;
 
   @override
+  List<GearItem> get gear => _delegate.gear;
+
+  @override
   PackList? findById(String id) => _delegate.findById(id);
 
   @override
@@ -76,8 +81,9 @@ class PersistentPackListRepository extends ChangeNotifier
   void replaceAllData({
     required List<PackList> lists,
     required UserSettings settings,
+    List<GearItem>? gear,
   }) {
-    _delegate.replaceAllData(lists: lists, settings: settings);
+    _delegate.replaceAllData(lists: lists, settings: settings, gear: gear);
   }
 
   @override
@@ -170,13 +176,41 @@ class PersistentPackListRepository extends ChangeNotifier
     _delegate.reorderItems(listId, reorderedItems);
   }
 
+  @override
+  void upsertGear(GearItem gear) {
+    _delegate.upsertGear(gear);
+  }
+
+  @override
+  void deleteGear(String gearId) {
+    _delegate.deleteGear(gearId);
+  }
+
+  @override
+  int addGearToList(
+    String listId,
+    List<String> gearIds, {
+    String? containerItemId,
+  }) {
+    return _delegate.addGearToList(
+      listId,
+      gearIds,
+      containerItemId: containerItemId,
+    );
+  }
+
+  @override
+  GearItem? saveItemToGear(String listId, String itemId) {
+    return _delegate.saveItemToGear(listId, itemId);
+  }
+
   void _handleChange() {
     _queueSave(_snapshot());
     notifyListeners();
   }
 
   Uint8List _snapshot() {
-    return BackupCodec.encode(lists: lists, settings: settings);
+    return BackupCodec.encode(lists: lists, settings: settings, gear: gear);
   }
 
   void _queueSave(Uint8List bytes) {

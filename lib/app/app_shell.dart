@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../screens/gear_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/templates_screen.dart';
@@ -37,6 +38,7 @@ class _AppShellState extends State<AppShell> {
               children: const [
                 HomeScreen(),
                 TemplatesScreen(),
+                GearScreen(),
                 ProfileScreen(),
               ],
             ),
@@ -156,6 +158,11 @@ class _FloatingNavBar extends StatelessWidget {
       label: '範本',
       icon: Icons.description_outlined,
       selectedIcon: Icons.description,
+    ),
+    _NavTabData(
+      label: '裝備',
+      icon: Icons.backpack_outlined,
+      selectedIcon: Icons.backpack,
     ),
     _NavTabData(
       label: '設定',
@@ -300,8 +307,8 @@ class _NavTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
           ),
           child: Padding(
-            // 所有 tab 尺寸一致 → 切換時不位移。
-            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 7),
+            // 所有 tab 尺寸一致 → 切換時不位移。4 個 tab 在 375 寬仍放得下。
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
