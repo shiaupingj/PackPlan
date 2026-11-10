@@ -174,6 +174,12 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    // 深色模式:卡片與導覽列底色幾乎一樣,外框用半透明白才分得開;
+    // 淺色模式:白底配灰框就夠清楚。
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final outline = isDark
+        ? Colors.white.withValues(alpha: 0.22)
+        : palette.border;
     // 有 Home 指示條時往下貼近它(安全區減 12);沒有時離底 12。
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     return SafeArea(
@@ -203,12 +209,10 @@ class _FloatingNavBar extends StatelessWidget {
                   key: const ValueKey('floating-nav-glass'),
                   decoration: ShapeDecoration(
                     color: palette.surface.withValues(alpha: 0.72),
-                    // 半透明時邊緣容易糊進背景,用一條細邊收住輪廓。
+                    // 半透明時邊緣容易糊進背景(尤其深色模式疊在卡片上),
+                    // 用一圈比底色亮的外框收住輪廓。
                     shape: StadiumBorder(
-                      side: BorderSide(
-                        color: palette.border.withValues(alpha: 0.6),
-                        width: 0.5,
-                      ),
+                      side: BorderSide(color: outline, width: 1),
                     ),
                   ),
                   child: Padding(
@@ -248,9 +252,9 @@ class _OuterShadowPainter extends CustomPainter {
   const _OuterShadowPainter();
 
   static const _shadow = BoxShadow(
-    color: Color(0x2E000000), // 黑 18%
-    blurRadius: 18,
-    offset: Offset(0, 6),
+    color: Color(0x52000000), // 黑 32%
+    blurRadius: 24,
+    offset: Offset(0, 8),
   );
 
   @override
