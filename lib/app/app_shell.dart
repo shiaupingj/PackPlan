@@ -178,7 +178,7 @@ class _FloatingNavBar extends StatelessWidget {
     // 淺色模式:白底配灰框就夠清楚。
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final outline = isDark
-        ? Colors.white.withValues(alpha: 0.22)
+        ? Colors.white.withValues(alpha: 0.14)
         : palette.border;
     // 有 Home 指示條時往下貼近它(安全區減 12);沒有時離底 12。
     final safeBottom = MediaQuery.paddingOf(context).bottom;
@@ -204,7 +204,7 @@ class _FloatingNavBar extends StatelessWidget {
             child: ClipPath(
               clipper: const ShapeBorderClipper(shape: StadiumBorder()),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: DecoratedBox(
                   key: const ValueKey('floating-nav-glass'),
                   decoration: ShapeDecoration(
@@ -308,7 +308,9 @@ class _NavTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final foreground = selected ? AppColors.primary : palette.textTertiary;
+    // 未選的用次要文字色:毛玻璃底下會透出內容,第三級灰太暗看不清楚;
+    // 也不用全白,免得搶過選中的橘色。
+    final foreground = selected ? AppColors.primary : palette.textSecondary;
     return Material(
       color: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
