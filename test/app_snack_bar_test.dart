@@ -26,7 +26,7 @@ void main() {
     await show(tester, appSnackBar('已備份到 iCloud'));
 
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.backgroundColor, AppColors.primary);
+    expect(snackBar.backgroundColor, AppColors.orange300);
     expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('已備份到 iCloud')).style?.color,

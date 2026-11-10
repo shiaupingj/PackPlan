@@ -174,7 +174,7 @@ void main() {
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     expect(snackBar.showCloseIcon, isTrue);
     expect(snackBar.persist, isFalse);
-    expect(snackBar.backgroundColor, AppColors.primary);
+    expect(snackBar.backgroundColor, AppColors.orange300);
     expect(snackBar.duration, lessThan(const Duration(seconds: 4)));
 
     final headlamp = itemById('headlamp');

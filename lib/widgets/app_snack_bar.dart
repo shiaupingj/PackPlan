@@ -5,10 +5,10 @@ import '../theme/app_dimens.dart';
 
 /// SnackBar 的語氣:決定底色與左側圖示。
 enum AppSnackTone {
-  /// 動作完成(橘底黑字 + 打勾)。
+  /// 動作完成(淺橘底 orange300 黑字 + 打勾)。
   success,
 
-  /// 單純告知(橘底黑字 + 資訊圖示)。
+  /// 單純告知(淺橘底 orange300 黑字 + 資訊圖示)。
   info,
 
   /// 失敗或輸入有誤(紅底白字 + 驚嘆號)。
@@ -27,7 +27,7 @@ SnackBar appSnackBar(
   bool showCloseIcon = false,
 }) {
   final isError = tone == AppSnackTone.error;
-  final background = isError ? AppColors.weightOver : AppColors.primary;
+  final background = isError ? AppColors.weightOver : AppColors.orange300;
   final foreground = isError ? Colors.white : AppColors.ink;
   final icon = switch (tone) {
     AppSnackTone.success => Icons.check_circle_outline,

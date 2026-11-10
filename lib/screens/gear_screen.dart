@@ -164,21 +164,17 @@ class _GearScreenState extends State<GearScreen> {
                 ),
               )
             else
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  child: Column(
-                    children: [
-                      for (final gear in visible)
-                        _GearTile(
-                          gear: gear,
-                          unit: unit,
-                          onTap: () => _edit(context, gear: gear),
-                        ),
-                    ],
+              // 每件裝備一個框。
+              for (final gear in visible)
+                Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  clipBehavior: Clip.antiAlias,
+                  child: _GearTile(
+                    gear: gear,
+                    unit: unit,
+                    onTap: () => _edit(context, gear: gear),
                   ),
                 ),
-              ),
           ],
         ],
       ),
@@ -239,11 +235,18 @@ class _GearTile extends StatelessWidget {
     return ListTile(
       key: ValueKey('gear-tile-${gear.id}'),
       onTap: onTap,
-      title: Text(gear.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(
+        gear.name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
       trailing: Text(
         WeightFormatters.gram(gear.weightGram, unit: unit),
-        style: Theme.of(context).textTheme.bodyMedium,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: context.palette.textSecondary),
       ),
     );
   }
