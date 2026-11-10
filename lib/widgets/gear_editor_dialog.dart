@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../app/app_scope.dart';
+import '../app/weight_reference_scope.dart';
 import '../data/seed_data.dart';
 import '../models/gear_item.dart';
+import '../models/gear_weight.dart';
 import '../models/pack_item.dart';
+import '../services/formatters.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'app_dialog_buttons.dart';
 import 'app_dialog_title.dart';
 import 'app_snack_bar.dart';
 import 'category_picker_sheet.dart';
+import 'weight_reference_sheets.dart';
 
 /// 新增 / 編輯「我的裝備」的結果:儲存的裝備,或要刪除的裝備 id。
 class GearEditorResult {
@@ -76,6 +82,26 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
   late bool _isContainer =
       widget.gear?.isContainer ?? _isContainerCategory(_categoryName);
   bool _isAddingCategory = false;
+
+  /// 這次編輯中從線上參考重量帶入的資料。
+  GearWeight? _appliedReference;
+  bool _lookingUpReference = false;
+
+  /// 查不到參考值時顯示在按鈕旁(SnackBar 會被對話框遮住)。
+  String? _referenceNotice;
+  bool _referencesRequested = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 開啟編輯就先備好線上資料,按「帶入參考值」時不用等。
+    if (_referencesRequested) return;
+    _referencesRequested = true;
+    final references = WeightReferenceScope.of(context);
+    references.load().then((_) {
+      if (!references.hasData) references.syncQuietly();
+    });
+  }
 
   @override
   void dispose() {
@@ -163,10 +189,53 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
             TextField(
               key: const ValueKey('gear-editor-weight'),
               controller: _weightController,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(labelText: '重量 g'),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: AppSpacing.md),
+            // 「帶入參考值」右邊接著顯示剛帶入的線上參考值(或查詢結果提示)。
+            Row(
+              children: [
+                TextButton.icon(
+                  key: const ValueKey('gear-editor-weight-reference'),
+                  onPressed: _lookingUpReference ? null : _pickReference,
+                  icon: _lookingUpReference
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_outlined, size: 18),
+                  label: const Text('帶入參考值'),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                if (_referenceHint(context) case final hint?) ...[
+                  const Icon(
+                    Icons.cloud_outlined,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      hint,
+                      key: const ValueKey('gear-editor-reference-hint'),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: AppColors.primary),
+                    ),
+                  ),
+                ] else if (_referenceNotice case final notice?)
+                  Expanded(
+                    child: Text(
+                      notice,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<WeightClass>(
               key: const ValueKey('gear-editor-placement'),
               value: _weightClass,
@@ -223,6 +292,75 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
         AppDialogConfirmButton(onPressed: _save, label: '儲存'),
       ],
     );
+  }
+
+  /// 重量欄仍是剛帶入的參考值時,顯示「線上參考 90 g（範圍 …）」。
+  String? _referenceHint(BuildContext context) {
+    final reference = _appliedReference;
+    if (reference == null ||
+        _weightController.text.trim() != '${reference.weightGram}') {
+      return null;
+    }
+    final unit = AppScope.of(context).settings.weightUnit;
+    final rangeText = WeightReferenceLabels.range(reference, unit);
+    final range = rangeText.isNotEmpty ? '（範圍 $rangeText）' : '';
+    return '線上參考 '
+        '${WeightFormatters.gram(reference.weightGram, unit: unit)}$range';
+  }
+
+  Future<void> _pickReference() async {
+    final references = WeightReferenceScope.of(context);
+    final unit = AppScope.of(context).settings.weightUnit;
+    final name = _nameController.text.trim();
+
+    setState(() {
+      _lookingUpReference = true;
+      _referenceNotice = null;
+    });
+    await references.load();
+    if (!references.hasData) await references.syncQuietly();
+    if (!mounted) return;
+    setState(() => _lookingUpReference = false);
+    if (!references.hasData) {
+      setState(() => _referenceNotice = '目前沒有可用的參考重量，請確認網路後再試');
+      return;
+    }
+
+    // 比對到型號時,改列出它所屬的通用項目與同系列型號;比對不到就直接開搜尋。
+    final catalogKey = _appliedReference?.key ?? widget.gear?.catalogKey;
+    final match = references.match(catalogKey: catalogKey, name: name);
+    final parentKey = match?.parentKey ?? match?.key ?? catalogKey;
+    final generic = parentKey == null ? null : references.lookup(parentKey);
+    final variants = parentKey == null
+        ? const <GearWeight>[]
+        : references.variantsOf(parentKey);
+    final notFound = generic == null && variants.isEmpty;
+
+    final current = _appliedReference;
+    final picked = await showWeightReferencePicker(
+      context,
+      generic: generic,
+      variants: variants,
+      references: references,
+      unit: unit,
+      selectedKey:
+          current != null &&
+              _weightController.text.trim() == '${current.weightGram}'
+          ? current.key
+          : null,
+      initialQuery: notFound ? name : null,
+      categoryId: _categoryIdOf(_categoryName),
+      categoryName: _categoryName,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _appliedReference = picked;
+      _weightController.text = '${picked.weightGram}';
+      // 選了品牌型號,或名稱還沒填 → 名稱一併帶入。
+      if (picked.isVariant || _nameController.text.trim().isEmpty) {
+        _nameController.text = picked.nameZh;
+      }
+    });
   }
 
   void _chooseCategory(String name) {
@@ -282,6 +420,10 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
           weightGram: weight,
           weightClass: _weightClass,
           isContainer: _isContainer && _weightClass == WeightClass.packed,
+          // 帶入過參考值就記下對應的通用項目,之後和範本配對用。
+          catalogKey: _appliedReference == null
+              ? base.catalogKey
+              : _appliedReference!.parentKey ?? _appliedReference!.key,
         ),
       ),
     );
