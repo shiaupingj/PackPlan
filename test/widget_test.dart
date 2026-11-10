@@ -462,7 +462,7 @@ void main() {
 
     await tester.tap(find.byKey(categoryDropdownKey));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('＋ 新增分類').last);
+    await tester.tap(find.byKey(const ValueKey('category-chip-add')));
     await tester.pumpAndSettle();
 
     await tester.enterText(

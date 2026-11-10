@@ -46,10 +46,3 @@ String gearSubtitle(GearItem gear) => [
   if (gear.weightClass == WeightClass.vehicle) '車上',
   if (gear.isContainer) '容器',
 ].join(' · ');
-
-/// 「我的裝備」放置位置分頁的名稱。
-String gearPlacementLabel(WeightClass weightClass) => switch (weightClass) {
-  WeightClass.packed => '背包／行李',
-  WeightClass.worn => '身上穿戴',
-  WeightClass.vehicle => '放車上',
-};

@@ -32,6 +32,10 @@ class ICloudBackupService implements CloudBackupService {
   /// 剛刪掉的檔案可能還會被列出來,所以 [list] 要自己濾掉。
   final Set<String> _deletedIds = {};
 
+  /// 這次執行期間剛上傳的備份。同樣因為清單更新有延遲,
+  /// 剛上傳的檔案可能還列不出來,所以 [list] 要自己補上。
+  final Map<String, CloudBackupEntry> _uploaded = {};
+
   @override
   Future<bool> isAvailable() async {
     // iCloud 未登入時 gather 會拋出 PlatformException。
@@ -66,12 +70,14 @@ class ICloudBackupService implements CloudBackupService {
         filePath: temp.path,
         destinationRelativePath: name,
       );
-      return CloudBackupEntry(
+      final entry = CloudBackupEntry(
         id: name,
         name: name,
         createdAt: now,
         sizeBytes: bytes.length,
       );
+      _uploaded[entry.id] = entry;
+      return entry;
     } on Exception catch (error) {
       throw CloudBackupException('無法上傳到 iCloud：$error');
     } finally {
@@ -88,23 +94,27 @@ class ICloudBackupService implements CloudBackupService {
       throw CloudBackupException('無法讀取 iCloud 備份清單：$error');
     }
 
-    final entries =
-        files
-            .where(
-              (file) =>
-                  !_deletedIds.contains(file.relativePath) &&
-                  CloudBackupNaming.isBackupFile(_fileName(file.relativePath)),
-            )
-            .map(
-              (file) => CloudBackupEntry(
-                id: file.relativePath,
-                name: _fileName(file.relativePath),
-                createdAt: file.contentChangeDate,
-                sizeBytes: file.sizeInBytes,
-              ),
-            )
-            .toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final entries = files
+        .where(
+          (file) =>
+              !_deletedIds.contains(file.relativePath) &&
+              CloudBackupNaming.isBackupFile(_fileName(file.relativePath)),
+        )
+        .map(
+          (file) => CloudBackupEntry(
+            id: file.relativePath,
+            name: _fileName(file.relativePath),
+            createdAt: file.contentChangeDate,
+            sizeBytes: file.sizeInBytes,
+          ),
+        )
+        .toList();
+    // iCloud 已經列得出來的就不用再記;還列不出來的先用上傳時的資料補上。
+    final listedIds = {for (final entry in entries) entry.id};
+    _uploaded.removeWhere((id, _) => listedIds.contains(id));
+    entries
+      ..addAll(_uploaded.values)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return entries;
   }
 
@@ -172,6 +182,7 @@ class ICloudBackupService implements CloudBackupService {
       throw const CloudBackupException('無法刪除 iCloud 備份，請稍後再試');
     }
     _deletedIds.add(entry.id);
+    _uploaded.remove(entry.id);
   }
 
   Future<void> _deleteFile(String relativePath) => ICloudStorage.delete(

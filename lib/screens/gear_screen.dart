@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
 import '../models/gear_item.dart';
-import '../models/pack_item.dart';
 import '../models/user_settings.dart';
 import '../services/formatters.dart';
 import '../services/gear_library.dart';
@@ -26,8 +25,8 @@ class GearScreen extends StatefulWidget {
 class _GearScreenState extends State<GearScreen> {
   GearSort _sort = GearSort.mostUsed;
 
-  /// 目前的放置位置分頁;null 是「全部」。
-  WeightClass? _placement;
+  /// 目前的分類分頁;null 是「全部」。
+  String? _category;
   final _searchController = TextEditingController();
 
   @override
@@ -43,21 +42,20 @@ class _GearScreenState extends State<GearScreen> {
     final library = repository.gear;
     final t = Theme.of(context).textTheme;
     final query = _searchController.text.trim().toLowerCase();
+    // 分頁只列出有裝備的分類;選到的分類被清空(裝備刪掉或改分類)就回到「全部」。
+    final groups = groupGearByCategory(library);
+    final category = groups.containsKey(_category) ? _category : null;
     final visible = sortGear(library, _sort)
         .where(
           (gear) =>
-              (_placement == null || gear.weightClass == _placement) &&
+              (category == null || gear.categoryName == category) &&
               gear.name.toLowerCase().contains(query),
         )
         .toList();
-    final tabs = <(WeightClass?, String, int)>[
+    final tabs = <(String?, String, int)>[
       (null, '全部', library.length),
-      for (final weightClass in WeightClass.values)
-        (
-          weightClass,
-          gearPlacementLabel(weightClass),
-          library.where((gear) => gear.weightClass == weightClass).length,
-        ),
+      for (final entry in groups.entries)
+        (entry.key, entry.key, entry.value.length),
     ];
     final totalGram = library.fold(0, (total, gear) => total + gear.weightGram);
 
@@ -139,11 +137,11 @@ class _GearScreenState extends State<GearScreen> {
                             left: i == 0 ? 0 : AppSpacing.xl,
                           ),
                           child: UnderlineTab(
-                            key: ValueKey('gear-tab-${value?.name ?? 'all'}'),
+                            key: ValueKey('gear-tab-${value ?? 'all'}'),
                             label: label,
                             count: count,
-                            selected: value == _placement,
-                            onTap: () => setState(() => _placement = value),
+                            selected: value == category,
+                            onTap: () => setState(() => _category = value),
                           ),
                         ),
                     ],
@@ -157,7 +155,7 @@ class _GearScreenState extends State<GearScreen> {
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
                 child: Text(
                   query.isEmpty
-                      ? '這個位置還沒有裝備'
+                      ? '這個分類還沒有裝備'
                       : '找不到「${_searchController.text.trim()}」',
                   textAlign: TextAlign.center,
                   style: t.bodyMedium?.copyWith(

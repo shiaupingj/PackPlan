@@ -21,6 +21,7 @@ import '../widgets/app_dialog_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
 import '../widgets/gear_picker_sheet.dart';
+import '../widgets/category_picker_sheet.dart';
 import '../widgets/underline_tab.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
@@ -2027,7 +2028,6 @@ class _ItemEditorDialog extends StatefulWidget {
 
 class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   static const _containerCategoryIds = {'backpack', 'luggage'};
-  static const _addCategoryValue = '__add_category__';
 
   late final TextEditingController _nameController = TextEditingController(
     text: widget.item?.name ?? '',
@@ -2157,29 +2157,29 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<String>(
+            // 分類有十幾個,下拉選單太長,改成點開底部面板用標籤挑。
+            InkWell(
               key: const ValueKey('item-editor-category-dropdown'),
-              value: selectedCategory,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '分類'),
-              items: [
-                ..._availableCategoryNames.map(
-                  (category) =>
-                      DropdownMenuItem(value: category, child: Text(category)),
-                ),
-                const DropdownMenuItem(
-                  value: _addCategoryValue,
-                  child: Text('＋ 新增分類'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                if (value == _addCategoryValue) {
+              onTap: () async {
+                final value = await showCategoryPicker(
+                  context,
+                  names: _availableCategoryNames,
+                  selected: selectedCategory,
+                );
+                if (value == null || !mounted) return;
+                if (value == categoryPickerAddValue) {
                   setState(() => _isAddingCategory = true);
                   return;
                 }
                 _chooseCategory(value);
               },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '分類',
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(selectedCategory),
+              ),
             ),
             if (_isAddingCategory) ...[
               const SizedBox(height: AppSpacing.sm),

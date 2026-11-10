@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import '../data/seed_data.dart';
 import '../models/gear_item.dart';
 import '../models/pack_item.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'app_dialog_buttons.dart';
 import 'app_dialog_title.dart';
 import 'app_snack_bar.dart';
+import 'category_picker_sheet.dart';
 
 /// 新增 / 編輯「我的裝備」的結果:儲存的裝備,或要刪除的裝備 id。
 class GearEditorResult {
@@ -61,7 +61,6 @@ class _GearEditorDialog extends StatefulWidget {
 
 class _GearEditorDialogState extends State<_GearEditorDialog> {
   static const _containerCategoryIds = {'backpack', 'luggage'};
-  static const _addCategoryValue = '__add_category__';
 
   late final _categories = gearCategoryOptions(widget.library);
   late final _nameController = TextEditingController(
@@ -124,9 +123,13 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
             InkWell(
               key: const ValueKey('gear-editor-category'),
               onTap: () async {
-                final value = await _pickCategory(names);
+                final value = await showCategoryPicker(
+                  context,
+                  names: names,
+                  selected: _categoryName,
+                );
                 if (value == null || !mounted) return;
-                if (value == _addCategoryValue) {
+                if (value == categoryPickerAddValue) {
                   setState(() => _isAddingCategory = true);
                   return;
                 }
@@ -219,75 +222,6 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
         AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
         AppDialogConfirmButton(onPressed: _save, label: '儲存'),
       ],
-    );
-  }
-
-  Future<String?> _pickCategory(List<String> names) {
-    return showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final palette = sheetContext.palette;
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              0,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '選擇分類',
-                  style: Theme.of(sheetContext).textTheme.titleMedium,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    for (final name in names)
-                      ChoiceChip(
-                        key: ValueKey('gear-category-chip-$name'),
-                        label: Text(name),
-                        selected: name == _categoryName,
-                        showCheckmark: false,
-                        selectedColor: AppColors.primary,
-                        labelStyle: TextStyle(
-                          color: name == _categoryName
-                              ? AppColors.ink
-                              : palette.textPrimary,
-                        ),
-                        side: BorderSide(
-                          color: name == _categoryName
-                              ? AppColors.primary
-                              : palette.border,
-                        ),
-                        onSelected: (_) => Navigator.of(sheetContext).pop(name),
-                      ),
-                    ActionChip(
-                      key: const ValueKey('gear-category-chip-add'),
-                      avatar: Icon(
-                        Icons.add,
-                        size: 18,
-                        color: palette.textPrimary,
-                      ),
-                      label: const Text('新增分類'),
-                      side: BorderSide(color: palette.border),
-                      onPressed: () =>
-                          Navigator.of(sheetContext).pop(_addCategoryValue),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 

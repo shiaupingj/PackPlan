@@ -368,12 +368,18 @@ void main() {
       expect(find.textContaining('用過'), findsNothing);
     });
 
-    testWidgets('裝備分頁:放置位置分頁篩選,不顯示分類標題與使用次數', (tester) async {
+    testWidgets('裝備分頁:分類分頁只列出有裝備的分類,切換後篩選', (tester) async {
       final repository = InMemoryPackListRepository(
         initialGear: [
           _gear('g1', 'Nemo Disco 15', usageCount: 3),
-          _gear('g2', '登山鞋', weightClass: WeightClass.worn),
-          _gear('g3', '露營椅', weightClass: WeightClass.vehicle),
+          _gear('g2', '登山鞋', categoryId: 'clothing', categoryName: '衣物'),
+          _gear(
+            'g3',
+            '露營椅',
+            categoryId: 'camp',
+            categoryName: '營地',
+            weightClass: WeightClass.vehicle,
+          ),
         ],
       );
       await tester.pumpWidget(PackPlanApp(repository: repository));
@@ -383,19 +389,27 @@ void main() {
       expect(find.text('Nemo Disco 15'), findsOneWidget);
       expect(find.text('登山鞋'), findsOneWidget);
       expect(find.text('露營椅'), findsOneWidget);
-      expect(find.text('睡眠系統'), findsNothing);
       expect(find.textContaining('用過'), findsNothing);
+      // 沒有裝備的分類(例如背包系統)不會有分頁。
+      expect(find.byKey(const ValueKey('gear-tab-背包系統')), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('gear-tab-vehicle')));
+      await tester.tap(find.byKey(const ValueKey('gear-tab-營地')));
       await tester.pumpAndSettle();
       expect(find.text('露營椅'), findsOneWidget);
       expect(find.text('Nemo Disco 15'), findsNothing);
       expect(find.text('登山鞋'), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('gear-tab-packed')));
+      // 這個分類的裝備刪光後,分頁消失並回到「全部」。
+      repository.deleteGear('g3');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('gear-tab-營地')), findsNothing);
+      expect(find.text('Nemo Disco 15'), findsOneWidget);
+      expect(find.text('登山鞋'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('gear-tab-睡眠系統')));
       await tester.pumpAndSettle();
       expect(find.text('Nemo Disco 15'), findsOneWidget);
-      expect(find.text('露營椅'), findsNothing);
+      expect(find.text('登山鞋'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('gear-tab-all')));
       await tester.pumpAndSettle();
@@ -417,7 +431,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('gear-editor-category')));
       await tester.pumpAndSettle();
       expect(find.text('選擇分類'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('gear-category-chip-背包系統')));
+      await tester.tap(find.byKey(const ValueKey('category-chip-背包系統')));
       await tester.pumpAndSettle();
       expect(find.text('選擇分類'), findsNothing);
 
