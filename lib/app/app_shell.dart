@@ -180,8 +180,12 @@ class _FloatingNavBar extends StatelessWidget {
       top: false,
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: math.max(safeBottom - AppSpacing.md, AppSpacing.md),
+        // 左右各留 12,窄螢幕時膠囊不會貼到邊。
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          math.max(safeBottom - AppSpacing.md, AppSpacing.md),
         ),
         // heightFactor: 1.0 → 高度只包住膠囊，避免在 bottomNavigationBar
         // 版位垂直撐滿而把內文區壓扁；水平置中不寫死寬度。
@@ -217,10 +221,13 @@ class _FloatingNavBar extends StatelessWidget {
                       children: [
                         for (var i = 0; i < _tabs.length; i++) ...[
                           if (i > 0) const SizedBox(width: 6),
-                          _NavTab(
-                            data: _tabs[i],
-                            selected: i == selectedIndex,
-                            onTap: () => onSelected(i),
+                          // 螢幕太窄(例如 320 寬)放不下時,各 tab 平均縮窄。
+                          Flexible(
+                            child: _NavTab(
+                              data: _tabs[i],
+                              selected: i == selectedIndex,
+                              onTap: () => onSelected(i),
+                            ),
                           ),
                         ],
                       ],
@@ -291,6 +298,9 @@ class _NavTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// 每個 tab 的寬度(Figma 定稿)。
+  static const double _width = 76;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -306,9 +316,10 @@ class _NavTab extends StatelessWidget {
             color: selected ? palette.border : Colors.transparent,
             borderRadius: BorderRadius.circular(30),
           ),
+          // 所有 tab 同為 76 寬 → 切換時不位移。4 個 tab 整條 342,在 375 寬仍放得下。
+          width: _width,
           child: Padding(
-            // 所有 tab 尺寸一致 → 切換時不位移。4 個 tab 在 375 寬仍放得下。
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+            padding: const EdgeInsets.symmetric(vertical: 7),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

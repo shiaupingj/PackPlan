@@ -341,6 +341,23 @@ void main() {
       expect(glass.width, lessThan(320));
     });
 
+    testWidgets('375 寬時導覽列每個分頁 76 寬', (tester) async {
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(const PackPlanApp());
+      await tester.pumpAndSettle();
+
+      final glass = find.byKey(const ValueKey('floating-nav-glass'));
+      final tab = find.ancestor(
+        of: find.descendant(of: glass, matching: find.text('裝備')),
+        matching: find.byType(Ink),
+      );
+      expect(tester.getSize(tab.first).width, 76);
+      expect(tester.getSize(glass).width, 342);
+    });
+
     testWidgets('裝備分頁:空狀態可新增第一件裝備', (tester) async {
       final repository = InMemoryPackListRepository();
       await tester.pumpWidget(PackPlanApp(repository: repository));
