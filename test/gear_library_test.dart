@@ -358,6 +358,97 @@ void main() {
       expect(tester.getSize(glass).width, 342);
     });
 
+    test('reorderGear:只調整指定裝備的相對順序,其他裝備位置不動', () {
+      final repository = InMemoryPackListRepository(
+        initialGear: [
+          _gear('a', 'A'),
+          _gear('b', 'B', categoryName: '衣物', categoryId: 'clothing'),
+          _gear('c', 'C'),
+          _gear('d', 'D'),
+        ],
+      );
+      // 只重排「睡眠系統」的 a、c、d;b 留在第 2 個位置。
+      repository.reorderGear(['d', 'a', 'c']);
+      expect(
+        [for (final gear in repository.gear) gear.id],
+        ['d', 'b', 'a', 'c'],
+      );
+      expect(
+        sortGear(repository.gear, GearSort.custom).map((gear) => gear.id),
+        ['d', 'b', 'a', 'c'],
+      );
+    });
+
+    testWidgets('裝備分頁:自訂順序可拖曳把手調整,其他排序與搜尋時沒有把手', (tester) async {
+      final repository = InMemoryPackListRepository(
+        initialGear: [_gear('g1', '睡袋'), _gear('g2', '睡墊'), _gear('g3', '枕頭')],
+      );
+      await tester.pumpWidget(PackPlanApp(repository: repository));
+      await tester.tap(find.text('裝備'));
+      await tester.pumpAndSettle();
+
+      final handle = find.byKey(const ValueKey('gear-drag-g1'));
+      expect(handle, findsOneWidget);
+      expect(find.textContaining('依自訂順序排序'), findsOneWidget);
+
+      // 把第一件往下拖過另外兩件。
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 300));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect([for (final gear in repository.gear) gear.id], ['g2', 'g3', 'g1']);
+
+      await tester.enterText(find.byKey(const ValueKey('gear-search')), '睡');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('gear-drag-g2')), findsNothing);
+      await tester.enterText(find.byKey(const ValueKey('gear-search')), '');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('gear-sort')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('名稱').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('gear-drag-g2')), findsNothing);
+    });
+
+    testWidgets('裝備分頁:往下捲後出現置頂按鈕,在導覽列上方,點了回到頂端', (tester) async {
+      final repository = InMemoryPackListRepository(
+        initialGear: [for (var i = 0; i < 30; i++) _gear('g$i', '裝備 $i')],
+      );
+      await tester.pumpWidget(PackPlanApp(repository: repository));
+      await tester.tap(find.text('裝備'));
+      await tester.pumpAndSettle();
+
+      final button = find.byKey(const ValueKey('scroll-to-top'));
+      expect(button, findsNothing);
+
+      await tester.drag(find.text('裝備 3'), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      expect(button, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('gear-search')).hitTestable(),
+        findsNothing,
+      );
+      final nav = tester.getRect(
+        find.byKey(const ValueKey('floating-nav-glass')),
+      );
+      final rect = tester.getRect(button);
+      expect(rect.bottom, nav.top - 16);
+      expect(rect.right, greaterThan(nav.center.dx));
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(button, findsNothing);
+      expect(
+        find.byKey(const ValueKey('gear-search')).hitTestable(),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('裝備分頁:空狀態可新增第一件裝備', (tester) async {
       final repository = InMemoryPackListRepository();
       await tester.pumpWidget(PackPlanApp(repository: repository));

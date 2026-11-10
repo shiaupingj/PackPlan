@@ -1,7 +1,7 @@
 import '../models/gear_item.dart';
 import '../models/pack_item.dart';
 
-enum GearSort { mostUsed, recentlyUsed, heaviest, name }
+enum GearSort { custom, mostUsed, recentlyUsed, heaviest, name }
 
 /// 依排序方式排好裝備(不改動原清單)。
 List<GearItem> sortGear(List<GearItem> gear, GearSort sort) {
@@ -11,8 +11,11 @@ List<GearItem> sortGear(List<GearItem> gear, GearSort sort) {
     return bTime.compareTo(aTime);
   }
 
+  // 自訂順序就是裝備庫本身的順序(拖曳調整、新裝備排最後)。
+  if (sort == GearSort.custom) return [...gear];
   return [...gear]..sort(
     (a, b) => switch (sort) {
+      GearSort.custom => 0,
       GearSort.mostUsed => switch (b.usageCount.compareTo(a.usageCount)) {
         0 => byRecent(a, b),
         final result => result,
@@ -34,6 +37,7 @@ Map<String, List<GearItem>> groupGearByCategory(List<GearItem> gear) {
 }
 
 String gearSortLabel(GearSort sort) => switch (sort) {
+  GearSort.custom => '自訂順序',
   GearSort.mostUsed => '最常用',
   GearSort.recentlyUsed => '最近用',
   GearSort.heaviest => '重量高→低',

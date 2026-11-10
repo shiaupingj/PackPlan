@@ -22,6 +22,7 @@ import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
 import '../widgets/gear_picker_sheet.dart';
 import '../widgets/category_picker_sheet.dart';
+import '../widgets/scroll_to_top_button.dart';
 import '../widgets/underline_tab.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
@@ -186,6 +187,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
           ),
         ],
       ),
+      floatingActionButton: ScrollToTopButton(controller: _scrollController),
       // 「放置位置」標題 + 分頁 + 說明/本體摘要捲到頂端時固定住,下方分類從底下捲過。
       body: CustomScrollView(
         key: const ValueKey('pack-detail-scroll'),

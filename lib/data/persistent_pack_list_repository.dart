@@ -187,6 +187,11 @@ class PersistentPackListRepository extends ChangeNotifier
   }
 
   @override
+  void reorderGear(List<String> orderedIds) {
+    _delegate.reorderGear(orderedIds);
+  }
+
+  @override
   int addGearToList(
     String listId,
     List<String> gearIds, {

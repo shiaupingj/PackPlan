@@ -12,6 +12,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 import '../widgets/gear_editor_dialog.dart';
+import '../widgets/scroll_to_top_button.dart';
 import '../widgets/underline_tab.dart';
 
 /// 「我的裝備」分頁:個人裝備資產庫,建立清單時可以直接挑。
@@ -23,7 +24,8 @@ class GearScreen extends StatefulWidget {
 }
 
 class _GearScreenState extends State<GearScreen> {
-  GearSort _sort = GearSort.mostUsed;
+  GearSort _sort = GearSort.custom;
+  final _scrollController = ScrollController();
 
   /// 目前的分類分頁;null 是「全部」。
   String? _category;
@@ -32,6 +34,7 @@ class _GearScreenState extends State<GearScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -57,6 +60,7 @@ class _GearScreenState extends State<GearScreen> {
       for (final entry in groups.entries)
         (entry.key, entry.key, entry.value.length),
     ];
+    final canReorder = _sort == GearSort.custom && query.isEmpty;
     final totalGram = library.fold(0, (total, gear) => total + gear.weightGram);
 
     return Scaffold(
@@ -83,7 +87,12 @@ class _GearScreenState extends State<GearScreen> {
           ),
         ],
       ),
+      floatingActionButton: ScrollToTopButton(
+        controller: _scrollController,
+        bottomLift: ScrollToTopButton.liftAboveNavBar(context),
+      ),
       body: ListView(
+        controller: _scrollController,
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
           AppSpacing.lg,
@@ -164,17 +173,35 @@ class _GearScreenState extends State<GearScreen> {
                 ),
               )
             else
-              // 每件裝備一個框。
-              for (final gear in visible)
-                Card(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  clipBehavior: Clip.antiAlias,
-                  child: _GearTile(
-                    gear: gear,
-                    unit: unit,
-                    onTap: () => _edit(context, gear: gear),
-                  ),
-                ),
+              // 每件裝備一個框。自訂順序且沒在搜尋時,右側有把手可拖曳調整順序。
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: visible.length,
+                onReorder: (oldIndex, newIndex) {
+                  final ids = [for (final gear in visible) gear.id];
+                  if (newIndex > oldIndex) newIndex -= 1;
+                  ids.insert(newIndex, ids.removeAt(oldIndex));
+                  repository.reorderGear(ids);
+                },
+                itemBuilder: (context, index) {
+                  final gear = visible[index];
+                  return Padding(
+                    key: ValueKey(gear.id),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Card(
+                      clipBehavior: Clip.antiAlias,
+                      child: _GearTile(
+                        gear: gear,
+                        unit: unit,
+                        onTap: () => _edit(context, gear: gear),
+                        dragIndex: canReorder ? index : null,
+                      ),
+                    ),
+                  );
+                },
+              ),
           ],
         ],
       ),
@@ -223,11 +250,15 @@ class _GearTile extends StatelessWidget {
     required this.gear,
     required this.unit,
     required this.onTap,
+    this.dragIndex,
   });
 
   final GearItem gear;
   final WeightUnit unit;
   final VoidCallback onTap;
+
+  /// 非 null 時在最右邊顯示拖曳把手(這件裝備在可排序清單裡的位置)。
+  final int? dragIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -242,11 +273,32 @@ class _GearTile extends StatelessWidget {
         style: Theme.of(context).textTheme.titleMedium,
       ),
       subtitle: subtitle.isEmpty ? null : Text(subtitle),
-      trailing: Text(
-        WeightFormatters.gram(gear.weightGram, unit: unit),
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: context.palette.textSecondary),
+      // 有把手時右邊留給把手,內距收窄一點。
+      contentPadding: dragIndex == null
+          ? null
+          : const EdgeInsets.only(left: AppSpacing.lg, right: AppSpacing.xs),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            WeightFormatters.gram(gear.weightGram, unit: unit),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: context.palette.textSecondary,
+            ),
+          ),
+          if (dragIndex case final index?)
+            ReorderableDragStartListener(
+              key: ValueKey('gear-drag-${gear.id}'),
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Icon(
+                  Icons.drag_handle,
+                  color: context.palette.textTertiary,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

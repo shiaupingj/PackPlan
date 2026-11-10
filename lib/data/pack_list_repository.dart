@@ -89,6 +89,10 @@ abstract interface class PackListRepository extends Listenable {
   /// 刪除裝備;已加入的清單項目不受影響。
   void deleteGear(String gearId);
 
+  /// 調整裝備的自訂順序。[orderedIds] 可以只是一部分裝備(例如某個分類):
+  /// 這些裝備照新順序排回它們原本佔的位置,其他裝備不動。
+  void reorderGear(List<String> orderedIds);
+
   /// 把裝備複製成清單項目(重量來源記為 [WeightSource.gear]),並更新使用次數。
   /// 放背包內的裝備放進 [containerItemId](不是這份清單的容器時改放第一個容器);
   /// 穿戴、放車上與本身是容器的裝備不放進容器。回傳實際加入的件數。
@@ -512,6 +516,21 @@ class InMemoryPackListRepository extends ChangeNotifier
     final before = _gear.length;
     _gear.removeWhere((gear) => gear.id == gearId);
     if (_gear.length != before) notifyListeners();
+  }
+
+  @override
+  void reorderGear(List<String> orderedIds) {
+    final byId = {for (final gear in _gear) gear.id: gear};
+    final ordered = [
+      for (final id in orderedIds)
+        if (byId[id] case final gear?) gear,
+    ];
+    final moving = {for (final gear in ordered) gear.id};
+    var next = 0;
+    for (var i = 0; i < _gear.length; i++) {
+      if (moving.contains(_gear[i].id)) _gear[i] = ordered[next++];
+    }
+    notifyListeners();
   }
 
   @override
