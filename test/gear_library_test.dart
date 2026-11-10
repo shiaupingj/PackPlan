@@ -365,7 +365,66 @@ void main() {
       expect(repository.gear.single.name, 'Nemo Disco 15');
       expect(repository.gear.single.weightGram, 980);
       expect(find.text('Nemo Disco 15'), findsOneWidget);
-      expect(find.text('還沒用過'), findsOneWidget);
+      expect(find.textContaining('用過'), findsNothing);
+    });
+
+    testWidgets('裝備分頁:放置位置分頁篩選,不顯示分類標題與使用次數', (tester) async {
+      final repository = InMemoryPackListRepository(
+        initialGear: [
+          _gear('g1', 'Nemo Disco 15', usageCount: 3),
+          _gear('g2', '登山鞋', weightClass: WeightClass.worn),
+          _gear('g3', '露營椅', weightClass: WeightClass.vehicle),
+        ],
+      );
+      await tester.pumpWidget(PackPlanApp(repository: repository));
+      await tester.tap(find.text('裝備'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nemo Disco 15'), findsOneWidget);
+      expect(find.text('登山鞋'), findsOneWidget);
+      expect(find.text('露營椅'), findsOneWidget);
+      expect(find.text('睡眠系統'), findsNothing);
+      expect(find.textContaining('用過'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('gear-tab-vehicle')));
+      await tester.pumpAndSettle();
+      expect(find.text('露營椅'), findsOneWidget);
+      expect(find.text('Nemo Disco 15'), findsNothing);
+      expect(find.text('登山鞋'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('gear-tab-packed')));
+      await tester.pumpAndSettle();
+      expect(find.text('Nemo Disco 15'), findsOneWidget);
+      expect(find.text('露營椅'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('gear-tab-all')));
+      await tester.pumpAndSettle();
+      expect(find.text('登山鞋'), findsOneWidget);
+    });
+
+    testWidgets('新增裝備:分類從底部面板的標籤挑選', (tester) async {
+      final repository = InMemoryPackListRepository();
+      await tester.pumpWidget(PackPlanApp(repository: repository));
+      await tester.tap(find.text('裝備'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('gear-add')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('gear-editor-name')),
+        'G 大包',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('gear-editor-category')));
+      await tester.pumpAndSettle();
+      expect(find.text('選擇分類'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('gear-category-chip-背包系統')));
+      await tester.pumpAndSettle();
+      expect(find.text('選擇分類'), findsNothing);
+
+      await tester.tap(find.text('儲存'));
+      await tester.pumpAndSettle();
+      expect(repository.gear.single.categoryName, '背包系統');
+      expect(repository.gear.single.isContainer, isTrue);
     });
 
     testWidgets('新增項目:從我的裝備多選加入,已加入的顯示灰態', (tester) async {

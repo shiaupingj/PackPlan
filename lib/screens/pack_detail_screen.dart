@@ -21,6 +21,7 @@ import '../widgets/app_dialog_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
 import '../widgets/gear_picker_sheet.dart';
+import '../widgets/underline_tab.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
 import '../widgets/weight_bar.dart';
@@ -1398,7 +1399,7 @@ class _ContainerSummarySection extends StatelessWidget {
                       padding: EdgeInsets.only(
                         left: i == 0 ? 0 : AppSpacing.xl,
                       ),
-                      child: _PlacementTab(
+                      child: UnderlineTab(
                         key: ValueKey('placement-tab-${value ?? 'all'}'),
                         label: label,
                         count: count,
@@ -1418,76 +1419,6 @@ class _ContainerSummarySection extends StatelessWidget {
           style: t.bodySmall?.copyWith(color: detailColor),
         ),
       ],
-    );
-  }
-}
-
-/// 底線分頁:選中為主文字色 + 橘色底線,未選為次要文字色。
-class _PlacementTab extends StatelessWidget {
-  const _PlacementTab({
-    super.key,
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final palette = context.palette;
-    return InkWell(
-      onTap: onTap,
-      child: IntrinsicWidth(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 10),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.bodyMedium?.copyWith(
-                      color: selected
-                          ? AppColors.primary
-                          : palette.textSecondary,
-                      fontWeight: selected ? FontWeight.w500 : null,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  '($count)',
-                  style: t.bodySmall?.copyWith(color: palette.textTertiary),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              key: selected ? const ValueKey('placement-tab-indicator') : null,
-              height: 2,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.transparent,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(1),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

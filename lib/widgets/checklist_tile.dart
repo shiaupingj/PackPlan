@@ -37,7 +37,7 @@ class ChecklistTile extends StatelessWidget {
   /// 非 null 時在重量後加 ☁(或背包),點一下顯示此說明(線上參考值與範圍、來自我的裝備)。
   final String? weightTooltip;
 
-  /// 非 null 時在名稱列最後加 (i),點一下顯示備註。
+  /// 非 null 時在名稱列最後加便條圖示,點一下顯示備註。
   final String? note;
 
   /// 重量來自「我的裝備」:說明圖示改用背包,與線上參考的 ☁ 區分。
@@ -165,7 +165,7 @@ class ChecklistTile extends StatelessWidget {
                                 child: SizedBox.square(
                                   dimension: 28,
                                   child: Icon(
-                                    Icons.info_outline,
+                                    Icons.sticky_note_2_outlined,
                                     size: 16,
                                     color: checked || dimmed
                                         ? context.palette.textTertiary

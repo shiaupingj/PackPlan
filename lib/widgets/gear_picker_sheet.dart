@@ -251,7 +251,11 @@ class _GearPickerSheetState extends State<_GearPickerSheet> {
       controlAffinity: ListTileControlAffinity.leading,
       activeColor: AppColors.primary,
       title: Text(gear.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Text(added ? '已加入' : gearSubtitle(gear)),
+      subtitle: added
+          ? const Text('已加入')
+          : gearSubtitle(gear).isEmpty
+          ? null
+          : Text(gearSubtitle(gear)),
       secondary: Text(
         weight,
         // ListTile 的 secondary 預設字較小,改用和項目名稱同級的字。

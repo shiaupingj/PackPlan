@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/seed_data.dart';
 import '../models/gear_item.dart';
 import '../models/pack_item.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'app_dialog_buttons.dart';
@@ -118,27 +119,25 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<String>(
+            // 分類有十幾個,下拉選單太長,改成點開底部面板用標籤挑。
+            InkWell(
               key: const ValueKey('gear-editor-category'),
-              value: _categoryName,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '分類'),
-              items: [
-                for (final name in names)
-                  DropdownMenuItem(value: name, child: Text(name)),
-                const DropdownMenuItem(
-                  value: _addCategoryValue,
-                  child: Text('＋ 新增分類'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
+              onTap: () async {
+                final value = await _pickCategory(names);
+                if (value == null || !mounted) return;
                 if (value == _addCategoryValue) {
                   setState(() => _isAddingCategory = true);
                   return;
                 }
                 _chooseCategory(value);
               },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '分類',
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(_categoryName),
+              ),
             ),
             if (_isAddingCategory) ...[
               const SizedBox(height: AppSpacing.sm),
@@ -219,6 +218,75 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
         AppDialogCancelButton(onPressed: () => Navigator.of(context).pop()),
         AppDialogConfirmButton(onPressed: _save, label: '儲存'),
       ],
+    );
+  }
+
+  Future<String?> _pickCategory(List<String> names) {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final palette = sheetContext.palette;
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '選擇分類',
+                  style: Theme.of(sheetContext).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final name in names)
+                      ChoiceChip(
+                        key: ValueKey('gear-category-chip-$name'),
+                        label: Text(name),
+                        selected: name == _categoryName,
+                        showCheckmark: false,
+                        selectedColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: name == _categoryName
+                              ? AppColors.ink
+                              : palette.textPrimary,
+                        ),
+                        side: BorderSide(
+                          color: name == _categoryName
+                              ? AppColors.primary
+                              : palette.border,
+                        ),
+                        onSelected: (_) => Navigator.of(sheetContext).pop(name),
+                      ),
+                    ActionChip(
+                      key: const ValueKey('gear-category-chip-add'),
+                      avatar: Icon(
+                        Icons.add,
+                        size: 18,
+                        color: palette.textPrimary,
+                      ),
+                      label: const Text('新增分類'),
+                      side: BorderSide(color: palette.border),
+                      onPressed: () =>
+                          Navigator.of(sheetContext).pop(_addCategoryValue),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

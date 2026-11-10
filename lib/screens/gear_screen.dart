@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/app_scope.dart';
 import '../models/gear_item.dart';
+import '../models/pack_item.dart';
 import '../models/user_settings.dart';
 import '../services/formatters.dart';
 import '../services/gear_library.dart';
@@ -12,6 +13,7 @@ import '../widgets/app_buttons.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 import '../widgets/gear_editor_dialog.dart';
+import '../widgets/underline_tab.dart';
 
 /// 「我的裝備」分頁:個人裝備資產庫,建立清單時可以直接挑。
 class GearScreen extends StatefulWidget {
@@ -23,6 +25,9 @@ class GearScreen extends StatefulWidget {
 
 class _GearScreenState extends State<GearScreen> {
   GearSort _sort = GearSort.mostUsed;
+
+  /// 目前的放置位置分頁;null 是「全部」。
+  WeightClass? _placement;
   final _searchController = TextEditingController();
 
   @override
@@ -38,10 +43,22 @@ class _GearScreenState extends State<GearScreen> {
     final library = repository.gear;
     final t = Theme.of(context).textTheme;
     final query = _searchController.text.trim().toLowerCase();
-    final visible = sortGear(
-      library,
-      _sort,
-    ).where((gear) => gear.name.toLowerCase().contains(query)).toList();
+    final visible = sortGear(library, _sort)
+        .where(
+          (gear) =>
+              (_placement == null || gear.weightClass == _placement) &&
+              gear.name.toLowerCase().contains(query),
+        )
+        .toList();
+    final tabs = <(WeightClass?, String, int)>[
+      (null, '全部', library.length),
+      for (final weightClass in WeightClass.values)
+        (
+          weightClass,
+          gearPlacementLabel(weightClass),
+          library.where((gear) => gear.weightClass == weightClass).length,
+        ),
+    ];
     final totalGram = library.fold(0, (total, gear) => total + gear.weightGram);
 
     return Scaffold(
@@ -102,46 +119,65 @@ class _GearScreenState extends State<GearScreen> {
                       ),
               ),
             ),
+            const SizedBox(height: AppSpacing.xs),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: context.palette.border),
+                ),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final (i, (value, label, count)) in tabs.indexed)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            left: i == 0 ? 0 : AppSpacing.xl,
+                          ),
+                          child: UnderlineTab(
+                            key: ValueKey('gear-tab-${value?.name ?? 'all'}'),
+                            label: label,
+                            count: count,
+                            selected: value == _placement,
+                            onTap: () => setState(() => _placement = value),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: AppSpacing.lg),
             if (visible.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
                 child: Text(
-                  '找不到「${_searchController.text.trim()}」',
+                  query.isEmpty
+                      ? '這個位置還沒有裝備'
+                      : '找不到「${_searchController.text.trim()}」',
                   textAlign: TextAlign.center,
                   style: t.bodyMedium?.copyWith(
                     color: context.palette.textSecondary,
                   ),
                 ),
-              ),
-            for (final entry in groupGearByCategory(visible).entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.sm,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg,
-                            AppSpacing.sm,
-                            AppSpacing.lg,
-                            AppSpacing.xs,
-                          ),
-                          child: Text(entry.key, style: t.titleMedium),
+              )
+            else
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Column(
+                    children: [
+                      for (final gear in visible)
+                        _GearTile(
+                          gear: gear,
+                          unit: unit,
+                          onTap: () => _edit(context, gear: gear),
                         ),
-                        for (final gear in entry.value)
-                          _GearTile(
-                            gear: gear,
-                            unit: unit,
-                            onTap: () => _edit(context, gear: gear),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -201,11 +237,12 @@ class _GearTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtitle = gearSubtitle(gear);
     return ListTile(
       key: ValueKey('gear-tile-${gear.id}'),
       onTap: onTap,
       title: Text(gear.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-      subtitle: Text(gearSubtitle(gear)),
+      subtitle: subtitle.isEmpty ? null : Text(subtitle),
       trailing: Text(
         WeightFormatters.gram(gear.weightGram, unit: unit),
         style: Theme.of(context).textTheme.bodyMedium,

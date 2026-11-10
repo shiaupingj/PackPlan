@@ -40,10 +40,16 @@ String gearSortLabel(GearSort sort) => switch (sort) {
   GearSort.name => '名稱',
 };
 
-/// 裝備的副標:使用次數、放置位置與容器標記。
+/// 裝備的副標:放置位置與容器標記;都沒有時是空字串。
 String gearSubtitle(GearItem gear) => [
-  gear.usageCount == 0 ? '還沒用過' : '用過 ${gear.usageCount} 次',
   if (gear.weightClass == WeightClass.worn) '穿戴',
   if (gear.weightClass == WeightClass.vehicle) '車上',
   if (gear.isContainer) '容器',
 ].join(' · ');
+
+/// 「我的裝備」放置位置分頁的名稱。
+String gearPlacementLabel(WeightClass weightClass) => switch (weightClass) {
+  WeightClass.packed => '背包／行李',
+  WeightClass.worn => '身上穿戴',
+  WeightClass.vehicle => '放車上',
+};
