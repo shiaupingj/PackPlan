@@ -19,6 +19,7 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
+import '../widgets/app_snack_bar.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -212,14 +213,22 @@ class ProfileScreen extends StatelessWidget {
       SupportMail.feedback(appVersion: version),
     );
     if (!opened && context.mounted) {
-      _showSnack(context, '無法開啟郵件 App，請寄信到 ${SupportMail.address}');
+      _showSnack(
+        context,
+        '無法開啟郵件 App，請寄信到 ${SupportMail.address}',
+        tone: AppSnackTone.error,
+      );
     }
   }
 
-  static void _showSnack(BuildContext context, String message) {
+  static void _showSnack(
+    BuildContext context,
+    String message, {
+    AppSnackTone tone = AppSnackTone.success,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(message, tone: tone));
   }
 
   static Future<void> _openUrl(BuildContext context, String url) async {
@@ -229,10 +238,11 @@ class ProfileScreen extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched && context.mounted) {
-        _showSnack(context, '無法開啟連結');
+        _showSnack(context, '無法開啟連結', tone: AppSnackTone.error);
       }
     } on Object {
-      if (context.mounted) _showSnack(context, '無法開啟連結');
+      if (context.mounted)
+        _showSnack(context, '無法開啟連結', tone: AppSnackTone.error);
     }
   }
 
@@ -263,7 +273,7 @@ class ProfileScreen extends StatelessWidget {
     } on Object catch (error, stackTrace) {
       CrashReporting.report(error, stackTrace);
       if (context.mounted) {
-        _showSnack(context, '無法匯出備份，請稍後再試');
+        _showSnack(context, '無法匯出備份，請稍後再試', tone: AppSnackTone.error);
       }
     }
   }
@@ -320,11 +330,13 @@ class ProfileScreen extends StatelessWidget {
       );
       _showSnack(context, '已匯入 ${backup.lists.length} 份清單');
     } on BackupFormatException catch (error) {
-      if (context.mounted) _showSnack(context, error.message);
+      if (context.mounted)
+        _showSnack(context, error.message, tone: AppSnackTone.error);
     } on Object catch (error, stackTrace) {
       // 格式錯誤已由上面處理;走到這裡多半是程式問題。
       CrashReporting.report(error, stackTrace);
-      if (context.mounted) _showSnack(context, '無法匯入備份，請確認檔案內容');
+      if (context.mounted)
+        _showSnack(context, '無法匯入備份，請確認檔案內容', tone: AppSnackTone.error);
     }
   }
 }
@@ -350,7 +362,11 @@ class _VersionTileState extends State<_VersionTile> {
           title: '版本資訊',
           subtitle: 'PackPlan $version',
           trailingIcon: null,
-          onTap: () => ProfileScreen._showSnack(context, '目前版本 $version'),
+          onTap: () => ProfileScreen._showSnack(
+            context,
+            '目前版本 $version',
+            tone: AppSnackTone.info,
+          ),
         );
       },
     );
@@ -424,8 +440,11 @@ class _ProUpgradeCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                 ),
-                onPressed: () =>
-                    ProfileScreen._showSnack(context, 'Pro 會在 1.1 版本開放'),
+                onPressed: () => ProfileScreen._showSnack(
+                  context,
+                  'Pro 會在 1.1 版本開放',
+                  tone: AppSnackTone.info,
+                ),
                 child: const Text('NT\$ 150 一次性買斷'),
               ),
             ),
@@ -491,10 +510,10 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     try {
       await action();
     } on CloudBackupException catch (error) {
-      _snack(error.message);
+      _snack(error.message, tone: AppSnackTone.error);
     } catch (error, stackTrace) {
       CrashReporting.report(error, stackTrace);
-      _snack('雲端操作失敗，請稍後再試');
+      _snack('雲端操作失敗，請稍後再試', tone: AppSnackTone.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -503,7 +522,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
   Future<void> _connect() => _run(() async {
     final connected = await _service.connect();
     if (!connected) {
-      _snack('尚未連結 $_serviceName');
+      _snack('尚未連結 $_serviceName', tone: AppSnackTone.error);
       return;
     }
     await _refresh();
@@ -695,11 +714,11 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     );
   }
 
-  void _snack(String message) {
+  void _snack(String message, {AppSnackTone tone = AppSnackTone.success}) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(message, tone: tone));
   }
 
   static String _formatTime(DateTime time) {

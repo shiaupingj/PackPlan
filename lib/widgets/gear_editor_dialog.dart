@@ -8,6 +8,7 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import 'app_dialog_buttons.dart';
 import 'app_dialog_title.dart';
+import 'app_snack_bar.dart';
 
 /// 新增 / 編輯「我的裝備」的結果:儲存的裝備,或要刪除的裝備 id。
 class GearEditorResult {
@@ -309,7 +310,7 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('請輸入分類名稱')));
+      ).showSnackBar(appSnackBar('請輸入分類名稱', tone: AppSnackTone.error));
       return;
     }
     _chooseCategory(name);
@@ -322,7 +323,7 @@ class _GearEditorDialogState extends State<_GearEditorDialog> {
     if (name.isEmpty || weight == null || weight < 0) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('請填寫名稱；重量不可小於 0')));
+      ).showSnackBar(appSnackBar('請填寫名稱；重量不可小於 0', tone: AppSnackTone.error));
       return;
     }
 

@@ -26,6 +26,7 @@ import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
 import '../widgets/weight_bar.dart';
 import '../widgets/app_dialog_title.dart';
+import '../widgets/app_snack_bar.dart';
 
 class PackDetailScreen extends StatefulWidget {
   const PackDetailScreen({super.key, required this.listId});
@@ -430,22 +431,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(
-            '已帶入 ${updated.length} 項參考重量',
-            style: const TextStyle(color: AppColors.ink),
-          ),
-          backgroundColor: AppColors.primary,
+        appSnackBar(
+          '已帶入 ${updated.length} 項參考重量',
           showCloseIcon: true,
-          closeIconColor: AppColors.ink,
-          // 有「復原」時 Flutter 預設不會自動消失,這裡明確設成時間到就關。
-          persist: false,
           duration: const Duration(milliseconds: 2500),
-          action: SnackBarAction(
-            label: '復原',
-            textColor: AppColors.ink,
-            onPressed: () => repository.upsertItems(listId, originals),
-          ),
+          actionLabel: '復原',
+          onAction: () => repository.upsertItems(listId, originals),
         ),
       );
   }
@@ -510,7 +501,10 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                           } catch (_) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
+                              appSnackBar(
+                                '無法開啟系統分享，請稍後再試',
+                                tone: AppSnackTone.error,
+                              ),
                             );
                           }
                         },
@@ -526,9 +520,9 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                             Navigator.of(sheetContext).pop();
                           }
                           if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('清單摘要已複製')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(appSnackBar('清單摘要已複製'));
                         },
                         child: const Text('複製摘要'),
                       ),
@@ -550,7 +544,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     setState(() => _deletedList = list);
     AppScope.of(context).deleteList(list.id);
     Navigator.of(context).pop();
-    messenger.showSnackBar(const SnackBar(content: Text('清單已刪除')));
+    messenger.showSnackBar(appSnackBar('清單已刪除'));
   }
 
   Future<void> _showTripSettingsEditor(
@@ -631,7 +625,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     if (renamed) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('分類名稱不可空白或與現有分類重複')));
+    ).showSnackBar(appSnackBar('分類名稱不可空白或與現有分類重複', tone: AppSnackTone.error));
   }
 
   Future<void> _showCategoryOrderDialog(
@@ -681,7 +675,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
         if (added > 0) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('已從我的裝備加入 $added 項')));
+          ).showSnackBar(appSnackBar('已從我的裝備加入 $added 項'));
         }
         return;
       }
@@ -703,10 +697,9 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     final gear = repository.saveItemToGear(list.id, item.id);
     if (gear == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          alreadySaved ? '「${gear.name}」已在我的裝備' : '已收藏「${gear.name}」到我的裝備',
-        ),
+      appSnackBar(
+        alreadySaved ? '「${gear.name}」已在我的裝備' : '已收藏「${gear.name}」到我的裝備',
+        tone: alreadySaved ? AppSnackTone.info : AppSnackTone.success,
       ),
     );
   }
@@ -763,7 +756,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     if (item.isContainer && containers.length <= 1) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('至少需要保留一個背包或行李')));
+      ).showSnackBar(appSnackBar('至少需要保留一個背包或行李', tone: AppSnackTone.error));
       return;
     }
 
@@ -2566,9 +2559,9 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
     final note = _noteController.text.trim();
     if (name.isEmpty || category.isEmpty || weight < 0 || quantity < 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('請填寫名稱與分類；重量、數量不可小於 0')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar('請填寫名稱與分類；重量、數量不可小於 0', tone: AppSnackTone.error),
+      );
       return;
     }
 
@@ -2673,7 +2666,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     if (category.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('請輸入分類名稱')));
+      ).showSnackBar(appSnackBar('請輸入分類名稱', tone: AppSnackTone.error));
       return;
     }
     _chooseCategory(category);

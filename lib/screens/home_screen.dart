@@ -11,6 +11,7 @@ import '../widgets/delete_list_dialog.dart';
 import '../widgets/pack_list_card.dart';
 import 'create_pack_flow_screen.dart';
 import 'pack_detail_screen.dart';
+import '../widgets/app_snack_bar.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -97,9 +98,7 @@ class HomeScreen extends StatelessWidget {
 
   void _deleteList(BuildContext context, String listId) {
     AppScope.of(context).deleteList(listId);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('清單已刪除')));
+    ScaffoldMessenger.of(context).showSnackBar(appSnackBar('清單已刪除'));
   }
 
   void _showListActions(BuildContext context, PackList list) {
