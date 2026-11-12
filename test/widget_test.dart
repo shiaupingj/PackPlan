@@ -462,7 +462,7 @@ void main() {
 
     await tester.tap(find.byKey(categoryDropdownKey));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('＋ 新增分類').last);
+    await tester.tap(find.byKey(const ValueKey('category-chip-add')));
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -482,6 +482,29 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('清單內頁:往下捲後出現置頂按鈕,點了回到頂端', (tester) async {
+    await tester.pumpWidget(const PackPlanApp());
+    await tester.tap(find.text('登山計劃'));
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(const ValueKey('scroll-to-top'));
+    final scroll = find.byKey(const ValueKey('pack-detail-scroll'));
+    expect(button, findsNothing);
+
+    await tester.drag(scroll, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(button, findsOneWidget);
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(button, findsNothing);
+    final position = tester
+        .widget<CustomScrollView>(scroll)
+        .controller!
+        .position;
+    expect(position.pixels, 0);
   });
 
   testWidgets('放置位置分頁:切換後只列出放在該處的項目', (tester) async {

@@ -6,6 +6,7 @@ import '../models/pack_template.dart';
 import '../theme/app_dimens.dart';
 import '../widgets/template_card.dart';
 import 'create_pack_flow_screen.dart';
+import '../widgets/app_snack_bar.dart';
 
 class TemplatesScreen extends StatelessWidget {
   const TemplatesScreen({super.key});
@@ -47,7 +48,7 @@ class TemplatesScreen extends StatelessWidget {
     if (FeatureFlags.isLocked(template)) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Pro 範本會在 1.1 版本開放')));
+      ).showSnackBar(appSnackBar('Pro 範本會在 1.1 版本開放', tone: AppSnackTone.info));
       return;
     }
 

@@ -19,6 +19,7 @@ import '../theme/app_dimens.dart';
 import '../theme/app_palette.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
+import '../widgets/app_snack_bar.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -131,7 +132,7 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           Text('資料管理', style: t.titleLarge),
           const SizedBox(height: AppSpacing.xs),
-          Text('備份包含全部清單與偏好設定', style: t.bodySmall),
+          Text('備份包含全部清單、我的裝備與偏好設定', style: t.bodySmall),
           const SizedBox(height: AppSpacing.md),
           Card(
             child: Column(
@@ -212,14 +213,22 @@ class ProfileScreen extends StatelessWidget {
       SupportMail.feedback(appVersion: version),
     );
     if (!opened && context.mounted) {
-      _showSnack(context, '無法開啟郵件 App，請寄信到 ${SupportMail.address}');
+      _showSnack(
+        context,
+        '無法開啟郵件 App，請寄信到 ${SupportMail.address}',
+        tone: AppSnackTone.error,
+      );
     }
   }
 
-  static void _showSnack(BuildContext context, String message) {
+  static void _showSnack(
+    BuildContext context,
+    String message, {
+    AppSnackTone tone = AppSnackTone.success,
+  }) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(message, tone: tone));
   }
 
   static Future<void> _openUrl(BuildContext context, String url) async {
@@ -229,10 +238,11 @@ class ProfileScreen extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched && context.mounted) {
-        _showSnack(context, '無法開啟連結');
+        _showSnack(context, '無法開啟連結', tone: AppSnackTone.error);
       }
     } on Object {
-      if (context.mounted) _showSnack(context, '無法開啟連結');
+      if (context.mounted)
+        _showSnack(context, '無法開啟連結', tone: AppSnackTone.error);
     }
   }
 
@@ -241,6 +251,7 @@ class ProfileScreen extends StatelessWidget {
     final bytes = BackupCodec.encode(
       lists: repository.lists,
       settings: repository.settings,
+      gear: repository.gear,
     );
     final now = DateTime.now();
     final date =
@@ -262,7 +273,7 @@ class ProfileScreen extends StatelessWidget {
     } on Object catch (error, stackTrace) {
       CrashReporting.report(error, stackTrace);
       if (context.mounted) {
-        _showSnack(context, '無法匯出備份，請稍後再試');
+        _showSnack(context, '無法匯出備份，請稍後再試', tone: AppSnackTone.error);
       }
     }
   }
@@ -296,7 +307,7 @@ class ProfileScreen extends StatelessWidget {
           titlePadding: AppDialogTitle.padding,
           title: const AppDialogTitle('匯入並取代目前資料？'),
           content: Text(
-            '將匯入 ${backup.lists.length} 份清單，並取代目前所有清單與偏好設定。'
+            '將匯入 ${backup.lists.length} 份清單，並取代目前所有清單、我的裝備與偏好設定。'
             '此動作無法復原，建議先匯出目前資料。',
           ),
           actions: [
@@ -312,16 +323,20 @@ class ProfileScreen extends StatelessWidget {
       );
       if (confirmed != true || !context.mounted) return;
 
-      AppScope.of(
-        context,
-      ).replaceAllData(lists: backup.lists, settings: backup.settings);
+      AppScope.of(context).replaceAllData(
+        lists: backup.lists,
+        settings: backup.settings,
+        gear: backup.gear,
+      );
       _showSnack(context, '已匯入 ${backup.lists.length} 份清單');
     } on BackupFormatException catch (error) {
-      if (context.mounted) _showSnack(context, error.message);
+      if (context.mounted)
+        _showSnack(context, error.message, tone: AppSnackTone.error);
     } on Object catch (error, stackTrace) {
       // 格式錯誤已由上面處理;走到這裡多半是程式問題。
       CrashReporting.report(error, stackTrace);
-      if (context.mounted) _showSnack(context, '無法匯入備份，請確認檔案內容');
+      if (context.mounted)
+        _showSnack(context, '無法匯入備份，請確認檔案內容', tone: AppSnackTone.error);
     }
   }
 }
@@ -347,7 +362,11 @@ class _VersionTileState extends State<_VersionTile> {
           title: '版本資訊',
           subtitle: 'PackPlan $version',
           trailingIcon: null,
-          onTap: () => ProfileScreen._showSnack(context, '目前版本 $version'),
+          onTap: () => ProfileScreen._showSnack(
+            context,
+            '目前版本 $version',
+            tone: AppSnackTone.info,
+          ),
         );
       },
     );
@@ -421,8 +440,11 @@ class _ProUpgradeCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                 ),
-                onPressed: () =>
-                    ProfileScreen._showSnack(context, 'Pro 會在 1.1 版本開放'),
+                onPressed: () => ProfileScreen._showSnack(
+                  context,
+                  'Pro 會在 1.1 版本開放',
+                  tone: AppSnackTone.info,
+                ),
                 child: const Text('NT\$ 150 一次性買斷'),
               ),
             ),
@@ -488,10 +510,10 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     try {
       await action();
     } on CloudBackupException catch (error) {
-      _snack(error.message);
+      _snack(error.message, tone: AppSnackTone.error);
     } catch (error, stackTrace) {
       CrashReporting.report(error, stackTrace);
-      _snack('雲端操作失敗，請稍後再試');
+      _snack('雲端操作失敗，請稍後再試', tone: AppSnackTone.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -500,7 +522,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
   Future<void> _connect() => _run(() async {
     final connected = await _service.connect();
     if (!connected) {
-      _snack('尚未連結 $_serviceName');
+      _snack('尚未連結 $_serviceName', tone: AppSnackTone.error);
       return;
     }
     await _refresh();
@@ -511,6 +533,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     final bytes = BackupCodec.encode(
       lists: repository.lists,
       settings: repository.settings,
+      gear: repository.gear,
     );
     await _service.upload(bytes);
     await _refresh();
@@ -521,7 +544,7 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     final confirmed = await _confirm(
       title: '從這份備份還原？',
       message:
-          '將以 ${_formatTime(entry.createdAt)} 的備份取代目前所有清單與偏好設定，'
+          '將以 ${_formatTime(entry.createdAt)} 的備份取代目前所有清單、我的裝備與偏好設定，'
           '此動作無法復原。',
       confirmLabel: '還原',
     );
@@ -530,7 +553,11 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
       final repository = AppScope.of(context);
       final bytes = await _service.download(entry);
       final backup = BackupCodec.decode(bytes);
-      repository.replaceAllData(lists: backup.lists, settings: backup.settings);
+      repository.replaceAllData(
+        lists: backup.lists,
+        settings: backup.settings,
+        gear: backup.gear,
+      );
       _snack('已還原 ${backup.lists.length} 份清單');
     });
   }
@@ -687,11 +714,11 @@ class _CloudBackupCardState extends State<_CloudBackupCard> {
     );
   }
 
-  void _snack(String message) {
+  void _snack(String message, {AppSnackTone tone = AppSnackTone.success}) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(appSnackBar(message, tone: tone));
   }
 
   static String _formatTime(DateTime time) {

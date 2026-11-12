@@ -10,6 +10,7 @@ import 'pack_plan_app.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/app_dialog_title.dart';
 import '../widgets/content_width_limit.dart';
+import '../widgets/app_snack_bar.dart';
 
 typedef RepositoryInitializer = Future<PackListRepository> Function();
 typedef LocalDataResetter = Future<void> Function();
@@ -85,7 +86,7 @@ class _PackPlanBootstrapState extends State<PackPlanBootstrap> {
       if (!mounted) return;
       setState(() => _resetting = false);
       messenger.showSnackBar(
-        const SnackBar(content: Text('無法重建本機資料，請重新啟動 App 後再試')),
+        appSnackBar('無法重建本機資料，請重新啟動 App 後再試', tone: AppSnackTone.error),
       );
     }
   }

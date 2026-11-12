@@ -20,10 +20,15 @@ import '../widgets/app_buttons.dart';
 import '../widgets/app_dialog_buttons.dart';
 import '../widgets/checklist_tile.dart';
 import '../widgets/delete_list_dialog.dart';
+import '../widgets/gear_picker_sheet.dart';
+import '../widgets/category_picker_sheet.dart';
+import '../widgets/scroll_to_top_button.dart';
+import '../widgets/underline_tab.dart';
 import '../widgets/weight_reference_sheets.dart';
 import '../widgets/weather_choice_chips.dart';
 import '../widgets/weight_bar.dart';
 import '../widgets/app_dialog_title.dart';
+import '../widgets/app_snack_bar.dart';
 
 class PackDetailScreen extends StatefulWidget {
   const PackDetailScreen({super.key, required this.listId});
@@ -182,6 +187,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
           ),
         ],
       ),
+      floatingActionButton: ScrollToTopButton(controller: _scrollController),
       // 「放置位置」標題 + 分頁 + 說明/本體摘要捲到頂端時固定住,下方分類從底下捲過。
       body: CustomScrollView(
         key: const ValueKey('pack-detail-scroll'),
@@ -235,9 +241,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                       child: PrimaryButton(
                         label: '新增項目',
                         icon: Icons.add,
-                        onPressed: () => _showItemEditor(
+                        onPressed: () => _addItem(
                           context,
-                          list.id,
+                          list,
+                          // 正在看某個容器分頁時,預設放進那個容器。
+                          initialContainerId: placement,
                           containers: containers,
                           categoryNames: categoryNames,
                           categoryIdByName: categoryIdByName,
@@ -340,6 +348,11 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                     ),
                     onDelete: (item) =>
                         _requestDeleteItem(context, list, item, containers),
+                    isInGear: (item) => repository.gear.any(
+                      (gear) => gear.id == item.gearItemId,
+                    ),
+                    onSaveToGear: (item) =>
+                        _saveItemToGear(context, list, item),
                     onAddItem: (categoryName) => _showItemEditor(
                       context,
                       list.id,
@@ -421,22 +434,12 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(
-            '已帶入 ${updated.length} 項參考重量',
-            style: const TextStyle(color: AppColors.ink),
-          ),
-          backgroundColor: AppColors.primary,
+        appSnackBar(
+          '已帶入 ${updated.length} 項參考重量',
           showCloseIcon: true,
-          closeIconColor: AppColors.ink,
-          // 有「復原」時 Flutter 預設不會自動消失,這裡明確設成時間到就關。
-          persist: false,
           duration: const Duration(milliseconds: 2500),
-          action: SnackBarAction(
-            label: '復原',
-            textColor: AppColors.ink,
-            onPressed: () => repository.upsertItems(listId, originals),
-          ),
+          actionLabel: '復原',
+          onAction: () => repository.upsertItems(listId, originals),
         ),
       );
   }
@@ -501,7 +504,10 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                           } catch (_) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('無法開啟系統分享，請稍後再試')),
+                              appSnackBar(
+                                '無法開啟系統分享，請稍後再試',
+                                tone: AppSnackTone.error,
+                              ),
                             );
                           }
                         },
@@ -517,9 +523,9 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
                             Navigator.of(sheetContext).pop();
                           }
                           if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('清單摘要已複製')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(appSnackBar('清單摘要已複製'));
                         },
                         child: const Text('複製摘要'),
                       ),
@@ -541,7 +547,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     setState(() => _deletedList = list);
     AppScope.of(context).deleteList(list.id);
     Navigator.of(context).pop();
-    messenger.showSnackBar(const SnackBar(content: Text('清單已刪除')));
+    messenger.showSnackBar(appSnackBar('清單已刪除'));
   }
 
   Future<void> _showTripSettingsEditor(
@@ -622,7 +628,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     if (renamed) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('分類名稱不可空白或與現有分類重複')));
+    ).showSnackBar(appSnackBar('分類名稱不可空白或與現有分類重複', tone: AppSnackTone.error));
   }
 
   Future<void> _showCategoryOrderDialog(
@@ -637,6 +643,68 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     );
     if (orderedNames == null) return;
     repository.reorderCategories(listId, orderedNames);
+  }
+
+  /// 「新增項目」:裝備庫有東西時先從我的裝備挑,也可以改手動輸入;
+  /// 裝備庫是空的就直接開手動輸入。
+  Future<void> _addItem(
+    BuildContext context,
+    PackList list, {
+    String? initialContainerId,
+    required List<PackItem> containers,
+    required List<String> categoryNames,
+    required Map<String, String> categoryIdByName,
+  }) async {
+    final repository = AppScope.of(context);
+    if (repository.gear.isNotEmpty) {
+      final picked = await showGearPicker(
+        context,
+        library: repository.gear,
+        addedGearIds: {
+          for (final item in list.items)
+            if (item.gearItemId case final id?) id,
+        },
+        unit: repository.settings.weightUnit,
+        containers: containers,
+        initialContainerId: initialContainerId,
+      );
+      if (picked == null || !context.mounted) return;
+      if (!picked.manual) {
+        final added = repository.addGearToList(
+          list.id,
+          picked.gearIds,
+          containerItemId: picked.containerItemId,
+        );
+        if (added > 0) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(appSnackBar('已從我的裝備加入 $added 項'));
+        }
+        return;
+      }
+    }
+    await _showItemEditor(
+      context,
+      list.id,
+      containers: containers,
+      categoryNames: categoryNames,
+      categoryIdByName: categoryIdByName,
+    );
+  }
+
+  void _saveItemToGear(BuildContext context, PackList list, PackItem item) {
+    final repository = AppScope.of(context);
+    final alreadySaved = repository.gear.any(
+      (gear) => gear.id == item.gearItemId,
+    );
+    final gear = repository.saveItemToGear(list.id, item.id);
+    if (gear == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      appSnackBar(
+        alreadySaved ? '「${gear.name}」已在我的裝備' : '已收藏「${gear.name}」到我的裝備',
+        tone: alreadySaved ? AppSnackTone.info : AppSnackTone.success,
+      ),
+    );
   }
 
   Future<void> _showItemEditor(
@@ -691,7 +759,7 @@ class _PackDetailScreenState extends State<PackDetailScreen> {
     if (item.isContainer && containers.length <= 1) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('至少需要保留一個背包或行李')));
+      ).showSnackBar(appSnackBar('至少需要保留一個背包或行李', tone: AppSnackTone.error));
       return;
     }
 
@@ -1327,7 +1395,7 @@ class _ContainerSummarySection extends StatelessWidget {
                       padding: EdgeInsets.only(
                         left: i == 0 ? 0 : AppSpacing.xl,
                       ),
-                      child: _PlacementTab(
+                      child: UnderlineTab(
                         key: ValueKey('placement-tab-${value ?? 'all'}'),
                         label: label,
                         count: count,
@@ -1351,76 +1419,6 @@ class _ContainerSummarySection extends StatelessWidget {
   }
 }
 
-/// 底線分頁:選中為主文字色 + 橘色底線,未選為次要文字色。
-class _PlacementTab extends StatelessWidget {
-  const _PlacementTab({
-    super.key,
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final int count;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final palette = context.palette;
-    return InkWell(
-      onTap: onTap,
-      child: IntrinsicWidth(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 10),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: t.bodyMedium?.copyWith(
-                      color: selected
-                          ? AppColors.primary
-                          : palette.textSecondary,
-                      fontWeight: selected ? FontWeight.w500 : null,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  '($count)',
-                  style: t.bodySmall?.copyWith(color: palette.textTertiary),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              key: selected ? const ValueKey('placement-tab-indicator') : null,
-              height: 2,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.transparent,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(1),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.name,
@@ -1432,6 +1430,8 @@ class _CategorySection extends StatelessWidget {
     required this.onChanged,
     required this.onEdit,
     required this.onDelete,
+    required this.isInGear,
+    required this.onSaveToGear,
     required this.onAddItem,
     required this.canReorder,
     required this.onReorder,
@@ -1448,6 +1448,8 @@ class _CategorySection extends StatelessWidget {
   final void Function(PackItem item, bool checked) onChanged;
   final ValueChanged<PackItem> onEdit;
   final ValueChanged<PackItem> onDelete;
+  final bool Function(PackItem item) isInGear;
+  final ValueChanged<PackItem> onSaveToGear;
   final ValueChanged<String> onAddItem;
   final bool canReorder;
   final ValueChanged<List<PackItem>> onReorder;
@@ -1556,15 +1558,19 @@ class _CategorySection extends StatelessWidget {
                             ),
                             showWeight: showWeight,
                             weightMissing: item.isWeightMissing,
-                            weightTooltip:
-                                item.weightSource == WeightSource.online
-                                ? WeightReferenceLabels.tooltip(
-                                    item.catalogKey == null
-                                        ? null
-                                        : references.lookup(item.catalogKey!),
-                                    unit,
-                                  )
-                                : null,
+                            weightTooltip: switch (item.weightSource) {
+                              WeightSource.online =>
+                                WeightReferenceLabels.tooltip(
+                                  item.catalogKey == null
+                                      ? null
+                                      : references.lookup(item.catalogKey!),
+                                  unit,
+                                ),
+                              WeightSource.gear => '來自我的裝備',
+                              _ => null,
+                            },
+                            weightFromGear:
+                                item.weightSource == WeightSource.gear,
                             note: item.note,
                             checked: item.checked,
                             dimmed:
@@ -1636,6 +1642,23 @@ class _CategorySection extends StatelessWidget {
                     onEdit(item);
                   },
                 ),
+                if (isInGear(item))
+                  const ListTile(
+                    key: ValueKey('item-action-in-gear'),
+                    enabled: false,
+                    leading: Icon(Icons.backpack),
+                    title: Text('已在我的裝備'),
+                  )
+                else
+                  ListTile(
+                    key: const ValueKey('item-action-save-to-gear'),
+                    leading: const Icon(Icons.backpack_outlined),
+                    title: const Text('收藏到我的裝備'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onSaveToGear(item);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(
                     Icons.delete_outline,
@@ -2007,7 +2030,6 @@ class _ItemEditorDialog extends StatefulWidget {
 
 class _ItemEditorDialogState extends State<_ItemEditorDialog> {
   static const _containerCategoryIds = {'backpack', 'luggage'};
-  static const _addCategoryValue = '__add_category__';
 
   late final TextEditingController _nameController = TextEditingController(
     text: widget.item?.name ?? '',
@@ -2137,29 +2159,29 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: AppSpacing.md),
-            DropdownButtonFormField<String>(
+            // 分類有十幾個,下拉選單太長,改成點開底部面板用標籤挑。
+            InkWell(
               key: const ValueKey('item-editor-category-dropdown'),
-              value: selectedCategory,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '分類'),
-              items: [
-                ..._availableCategoryNames.map(
-                  (category) =>
-                      DropdownMenuItem(value: category, child: Text(category)),
-                ),
-                const DropdownMenuItem(
-                  value: _addCategoryValue,
-                  child: Text('＋ 新增分類'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                if (value == _addCategoryValue) {
+              onTap: () async {
+                final value = await showCategoryPicker(
+                  context,
+                  names: _availableCategoryNames,
+                  selected: selectedCategory,
+                );
+                if (value == null || !mounted) return;
+                if (value == categoryPickerAddValue) {
                   setState(() => _isAddingCategory = true);
                   return;
                 }
                 _chooseCategory(value);
               },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: '分類',
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(selectedCategory),
+              ),
             ),
             if (_isAddingCategory) ...[
               const SizedBox(height: AppSpacing.sm),
@@ -2539,9 +2561,9 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
     final note = _noteController.text.trim();
     if (name.isEmpty || category.isEmpty || weight < 0 || quantity < 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('請填寫名稱與分類；重量、數量不可小於 0')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        appSnackBar('請填寫名稱與分類；重量、數量不可小於 0', tone: AppSnackTone.error),
+      );
       return;
     }
 
@@ -2646,7 +2668,7 @@ class _ItemEditorDialogState extends State<_ItemEditorDialog> {
     if (category.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('請輸入分類名稱')));
+      ).showSnackBar(appSnackBar('請輸入分類名稱', tone: AppSnackTone.error));
       return;
     }
     _chooseCategory(category);

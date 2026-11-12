@@ -174,7 +174,7 @@ void main() {
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
     expect(snackBar.showCloseIcon, isTrue);
     expect(snackBar.persist, isFalse);
-    expect(snackBar.backgroundColor, AppColors.primary);
+    expect(snackBar.backgroundColor, AppColors.orange300);
     expect(snackBar.duration, lessThan(const Duration(seconds: 4)));
 
     final headlamp = itemById('headlamp');
@@ -318,6 +318,47 @@ void main() {
 
     expect(find.widgetWithText(TextField, 'Nalgene 寬口瓶 1L'), findsOneWidget);
     expect(find.widgetWithText(TextField, '180'), findsOneWidget);
+  });
+
+  testWidgets('我的裝備:新增裝備時可帶入參考重量與型號名稱', (tester) async {
+    await tester.pumpWidget(
+      PackPlanApp(
+        repository: repository,
+        weightReferenceRepository: references,
+      ),
+    );
+    await tester.tap(find.text('裝備'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('gear-add')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('gear-editor-name')),
+      '大背包',
+    );
+    await tester.pumpAndSettle();
+    await tapVisible(
+      tester,
+      find.byKey(const ValueKey('gear-editor-weight-reference')),
+    );
+    expect(find.text('通用值（大背包）'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('weight-reference-osprey-exos-58')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Osprey Exos 58'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '1200'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('gear-editor-reference-hint')),
+      findsOneWidget,
+    );
+
+    await tapVisible(tester, find.text('儲存'));
+    final gear = repository.gear.single;
+    expect(gear.name, 'Osprey Exos 58');
+    expect(gear.weightGram, 1200);
+    expect(gear.catalogKey, 'large-backpack');
   });
 
   testWidgets('帶入後又改重量,存成自填', (tester) async {

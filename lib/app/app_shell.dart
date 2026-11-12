@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
+import '../screens/gear_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/templates_screen.dart';
@@ -37,6 +38,7 @@ class _AppShellState extends State<AppShell> {
               children: const [
                 HomeScreen(),
                 TemplatesScreen(),
+                GearScreen(),
                 ProfileScreen(),
               ],
             ),
@@ -158,6 +160,11 @@ class _FloatingNavBar extends StatelessWidget {
       selectedIcon: Icons.description,
     ),
     _NavTabData(
+      label: '裝備',
+      icon: Icons.backpack_outlined,
+      selectedIcon: Icons.backpack,
+    ),
+    _NavTabData(
       label: '設定',
       icon: Icons.settings_outlined,
       selectedIcon: Icons.settings,
@@ -167,14 +174,24 @@ class _FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    // 深色模式:卡片與導覽列底色幾乎一樣,外框用半透明白才分得開;
+    // 淺色模式:白底配灰框就夠清楚。
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final outline = isDark
+        ? Colors.white.withValues(alpha: 0.14)
+        : palette.border;
     // 有 Home 指示條時往下貼近它(安全區減 12);沒有時離底 12。
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     return SafeArea(
       top: false,
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.only(
-          bottom: math.max(safeBottom - AppSpacing.md, AppSpacing.md),
+        // 左右各留 12,窄螢幕時膠囊不會貼到邊。
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          math.max(safeBottom - AppSpacing.md, AppSpacing.md),
         ),
         // heightFactor: 1.0 → 高度只包住膠囊，避免在 bottomNavigationBar
         // 版位垂直撐滿而把內文區壓扁；水平置中不寫死寬度。
@@ -187,17 +204,15 @@ class _FloatingNavBar extends StatelessWidget {
             child: ClipPath(
               clipper: const ShapeBorderClipper(shape: StadiumBorder()),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                 child: DecoratedBox(
                   key: const ValueKey('floating-nav-glass'),
                   decoration: ShapeDecoration(
                     color: palette.surface.withValues(alpha: 0.72),
-                    // 半透明時邊緣容易糊進背景,用一條細邊收住輪廓。
+                    // 半透明時邊緣容易糊進背景(尤其深色模式疊在卡片上),
+                    // 用一圈比底色亮的外框收住輪廓。
                     shape: StadiumBorder(
-                      side: BorderSide(
-                        color: palette.border.withValues(alpha: 0.6),
-                        width: 0.5,
-                      ),
+                      side: BorderSide(color: outline, width: 1),
                     ),
                   ),
                   child: Padding(
@@ -210,10 +225,13 @@ class _FloatingNavBar extends StatelessWidget {
                       children: [
                         for (var i = 0; i < _tabs.length; i++) ...[
                           if (i > 0) const SizedBox(width: 6),
-                          _NavTab(
-                            data: _tabs[i],
-                            selected: i == selectedIndex,
-                            onTap: () => onSelected(i),
+                          // 螢幕太窄(例如 320 寬)放不下時,各 tab 平均縮窄。
+                          Flexible(
+                            child: _NavTab(
+                              data: _tabs[i],
+                              selected: i == selectedIndex,
+                              onTap: () => onSelected(i),
+                            ),
                           ),
                         ],
                       ],
@@ -234,9 +252,9 @@ class _OuterShadowPainter extends CustomPainter {
   const _OuterShadowPainter();
 
   static const _shadow = BoxShadow(
-    color: Color(0x2E000000), // 黑 18%
-    blurRadius: 18,
-    offset: Offset(0, 6),
+    color: Color(0x52000000), // 黑 32%
+    blurRadius: 24,
+    offset: Offset(0, 8),
   );
 
   @override
@@ -284,10 +302,15 @@ class _NavTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// 每個 tab 的寬度(Figma 定稿)。
+  static const double _width = 76;
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final foreground = selected ? AppColors.primary : palette.textTertiary;
+    // 未選的用次要文字色:毛玻璃底下會透出內容,第三級灰太暗看不清楚;
+    // 也不用全白,免得搶過選中的橘色。
+    final foreground = selected ? AppColors.primary : palette.textSecondary;
     return Material(
       color: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
@@ -299,9 +322,10 @@ class _NavTab extends StatelessWidget {
             color: selected ? palette.border : Colors.transparent,
             borderRadius: BorderRadius.circular(30),
           ),
+          // 所有 tab 同為 76 寬 → 切換時不位移。4 個 tab 整條 342,在 375 寬仍放得下。
+          width: _width,
           child: Padding(
-            // 所有 tab 尺寸一致 → 切換時不位移。
-            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 7),
+            padding: const EdgeInsets.symmetric(vertical: 7),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
